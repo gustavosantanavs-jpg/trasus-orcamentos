@@ -1,2 +1,4 @@
 streamlit
 fpdf
+Pillow
+firebase-admin
