@@ -33,7 +33,7 @@ if 'carrinho' not in st.session_state:
 if 'cliente_atual' not in st.session_state:
     st.session_state.cliente_atual = {"nome": "", "empresa": "", "telefone": "", "email": ""}
 if 'orcamento_editando' not in st.session_state:
-    st.session_state.orcamento_editando = None # Guarda o número do orçamento se estiver editando
+    st.session_state.orcamento_editando = None
 
 # Função para resetar e criar novo pedido
 def novo_pedido():
@@ -55,12 +55,26 @@ TABELA_PERSONALIZACAO = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 
 # ==========================
 st.markdown("""
 <style>
+    /* Ocultar a barra branca superior do Streamlit */
+    header[data-testid="stHeader"] {
+        background-color: #1c1c1c !important;
+    }
+
     .stApp { background-color: #1c1c1c; color: #e0e0e0; }
     [data-testid="stSidebar"] { background-color: #262626; padding-top: 20px; }
     .stTextInput>div>div>input, .stSelectbox>div>div>select, .stNumberInput>div>div>input { background-color: #333333; color: #e0e0e0; border: 1px solid #444444; }
-    .stButton>button { background-color: #ff4c4c; color: white; border: none; font-weight: bold; }
-    .stButton>button:hover { background-color: #ff3333; color: white; }
-    .box-carrinho { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 10px;}
+    
+    /* Clareando os rótulos dos campos de texto para branco */
+    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { 
+        color: #ffffff !important; 
+        font-weight: 500;
+    }
+    
+    /* Substituição do vermelho para Cinza Grafite nos botões */
+    .stButton>button { background-color: #4a4a4a !important; color: white !important; border: none !important; font-weight: bold !important; }
+    .stButton>button:hover { background-color: #5c5c5c !important; color: white !important; }
+    
+    .box-carrinho { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #4a4a4a; margin-bottom: 10px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -78,7 +92,6 @@ with aba_criar:
             st.title("👕 Novo Orçamento Trasus")
     
     with col_btn_novo:
-        # 1. ÍCONE DE NOVO PEDIDO
         st.button("🔄 Novo Pedido (Limpar)", on_click=novo_pedido, use_container_width=True)
 
     st.markdown("---")
@@ -98,7 +111,6 @@ with aba_criar:
         c_telefone = st.text_input("WhatsApp (números)", value=st.session_state.cliente_atual["telefone"])
         c_email = st.text_input("E-mail", value=st.session_state.cliente_atual["email"])
         
-        # Atualiza o estado do cliente
         st.session_state.cliente_atual = {"nome": c_nome, "empresa": c_empresa, "telefone": c_telefone, "email": c_email}
 
     # ==========================
@@ -158,8 +170,7 @@ with aba_criar:
     # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
     # ==========================
     st.header("3. Anexos e Finalização")
-    # 4. ADICIONAR MAIS DE UMA FOTO (accept_multiple_files=True)
-    imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas para caber na página)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
     if st.button("Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
         if len(st.session_state.carrinho) == 0:
@@ -168,14 +179,12 @@ with aba_criar:
             telefone_limpo = ''.join(filter(str.isdigit, c_telefone))
             telefone_formatado = f"{telefone_limpo[:2]}.{telefone_limpo[2:7]}-{telefone_limpo[7:]}" if len(telefone_limpo) == 11 else c_telefone
             
-            # 3. LÓGICA DE EDIÇÃO OU NOVO
             if st.session_state.orcamento_editando:
                 numero_orcamento = st.session_state.orcamento_editando
             else:
                 numero_orcamento = f"TRC-{datetime.now().strftime('%y%m%d-%H%M%S')}"
                 st.session_state.orcamento_editando = numero_orcamento
 
-            # Salva no "Banco de Dados" JSON
             banco[numero_orcamento] = {
                 "cliente": st.session_state.cliente_atual,
                 "carrinho": st.session_state.carrinho,
@@ -185,7 +194,7 @@ with aba_criar:
             salvar_banco(banco)
 
             # ==========================
-            # CONSTRUÇÃO DO PDF (1 PÁGINA)
+            # CONSTRUÇÃO DO PDF
             # ==========================
             pdf = FPDF()
             pdf.add_page()
@@ -197,7 +206,7 @@ with aba_criar:
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(0, 10, f"Orçamento: {numero_orcamento}", ln=True, align="R") 
             
-            pdf.set_y(55) # Subido um pouco para economizar espaço
+            pdf.set_y(55) 
             
             pdf.set_font("Arial", 'B', 12)
             pdf.cell(0, 10, "PROPOSTA COMERCIAL", ln=True, align="C")
@@ -206,20 +215,19 @@ with aba_criar:
             pdf.cell(0, 6, f"WhatsApp: {telefone_formatado} | E-mail: {c_email}", ln=True)
             pdf.ln(5)
 
-            # 4. FOTOS LADO A LADO E REDUZIDAS PARA CABER
+            # Ajuste de layout de imagens para evitar sobreposição na tabela
             if imagens_upload:
                 x_pos = 30
-                for img_file in imagens_upload[:2]: # Limita a 2 para caber no A4 lado a lado
+                for img_file in imagens_upload[:2]: 
                     img = Image.open(img_file).convert('RGB')
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
                         img.save(tmp_file.name, format="JPEG")
                         tmp_path = tmp_file.name
-                    # Imagens com largura de 70mm, lado a lado
                     pdf.image(tmp_path, x=x_pos, y=pdf.get_y(), w=70)
                     x_pos += 80 
-                pdf.set_y(pdf.get_y() + 75) # Pula a altura da imagem
+                # Aumento substancial do salto Y para limpar as imagens antes da tabela
+                pdf.set_y(pdf.get_y() + 95) 
             
-            # Tabela
             pdf.set_font("Arial", 'B', 9)
             pdf.cell(80, 8, " Descricao", border=1)
             pdf.cell(20, 8, " Qtd", border=1, align="C")
@@ -245,13 +253,11 @@ with aba_criar:
 
             pdf_bytes = pdf.output(dest='S').encode('latin1')
             
-            # 5. VISUALIZAÇÃO DO PDF NA TELA (In-line)
             st.success("✅ Orçamento gerado! Visualize abaixo:")
             b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
             pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="700" type="application/pdf" style="border: 1px solid #444;"></iframe>'
             st.markdown(pdf_display, unsafe_allow_html=True)
             
-            # Mantive o botão de baixar caso precise enviar para o cliente depois
             st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf")
 
 # ==========================
@@ -259,23 +265,19 @@ with aba_criar:
 # ==========================
 with aba_buscar:
     st.title("🔍 Histórico de Orçamentos")
-    # 2. CAMPO DE BUSCA
     termo_busca = st.text_input("Buscar por Nome do Cliente, Empresa ou Número do Orçamento:")
     
     if len(banco) == 0:
         st.info("Nenhum orçamento salvo ainda.")
     else:
         for num, dados in reversed(banco.items()):
-            # Lógica de filtro da busca
             texto_busca = f"{num} {dados['cliente']['nome']} {dados['cliente']['empresa']}".lower()
             if termo_busca.lower() in texto_busca:
                 with st.expander(f"📄 {num} - {dados['cliente']['nome']} ({dados['cliente']['empresa']}) - R$ {dados['total']:.2f}"):
                     st.write(f"**Data:** {dados['data']}")
                     st.write(f"**Itens:** {len(dados['carrinho'])}")
                     
-                    # 3. FUNCIONALIDADE DE EDITAR
                     if st.button(f"✏️ Editar este orçamento", key=f"edit_{num}"):
-                        # Carrega os dados antigos para a memória da sessão atual
                         st.session_state.cliente_atual = dados['cliente']
                         st.session_state.carrinho = dados['carrinho']
                         st.session_state.orcamento_editando = num
