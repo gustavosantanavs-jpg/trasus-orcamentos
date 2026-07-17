@@ -13,7 +13,7 @@ st.set_page_config(page_title="Trasus - Gestão de Orçamentos", layout="wide", 
 ARQUIVO_BD = "banco_orcamentos.json"
 
 # ==========================
-# FUNÇÕES DE BANCO DE DADOS (JSON)
+# FUNÇÕES DE BANCO DE DADOS (JSON) E POP-UP
 # ==========================
 def carregar_banco():
     if os.path.exists(ARQUIVO_BD):
@@ -25,6 +25,15 @@ def salvar_banco(dados):
     with open(ARQUIVO_BD, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
+# 🚀 NOVA FUNÇÃO: Cria a janela flutuante (Pop-up) para exibir o PDF
+@st.dialog("📄 Pré-visualização do Orçamento", width="large")
+def exibir_popup_pdf(pdf_bytes, numero_orcamento):
+    b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+    pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="650" type="application/pdf" style="border: none; border-radius: 8px;"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
+
 # ==========================
 # INICIANDO A MEMÓRIA DA SESSÃO
 # ==========================
@@ -35,7 +44,6 @@ if 'cliente_atual' not in st.session_state:
 if 'orcamento_editando' not in st.session_state:
     st.session_state.orcamento_editando = None
 
-# Função para resetar e criar novo pedido
 def novo_pedido():
     st.session_state.carrinho = []
     st.session_state.cliente_atual = {"nome": "", "empresa": "", "telefone": "", "email": ""}
@@ -55,25 +63,13 @@ TABELA_PERSONALIZACAO = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 
 # ==========================
 st.markdown("""
 <style>
-    /* Ocultar a barra branca superior do Streamlit */
-    header[data-testid="stHeader"] {
-        background-color: #1c1c1c !important;
-    }
-
+    header[data-testid="stHeader"] { background-color: #1c1c1c !important; }
     .stApp { background-color: #1c1c1c; color: #e0e0e0; }
     [data-testid="stSidebar"] { background-color: #262626; padding-top: 20px; }
     .stTextInput>div>div>input, .stSelectbox>div>div>select, .stNumberInput>div>div>input { background-color: #333333; color: #e0e0e0; border: 1px solid #444444; }
-    
-    /* Clareando os rótulos dos campos de texto para branco */
-    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { 
-        color: #ffffff !important; 
-        font-weight: 500;
-    }
-    
-    /* Substituição do vermelho para Cinza Grafite nos botões */
+    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { color: #ffffff !important; font-weight: 500; }
     .stButton>button { background-color: #4a4a4a !important; color: white !important; border: none !important; font-weight: bold !important; }
     .stButton>button:hover { background-color: #5c5c5c !important; color: white !important; }
-    
     .box-carrinho { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #4a4a4a; margin-bottom: 10px;}
 </style>
 """, unsafe_allow_html=True)
@@ -206,7 +202,7 @@ with aba_criar:
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(0, 10, f"Orçamento: {numero_orcamento}", ln=True, align="R") 
             
-            pdf.set_y(55) 
+            pdf.set_y(85) 
             
             pdf.set_font("Arial", 'B', 12)
             pdf.cell(0, 10, "PROPOSTA COMERCIAL", ln=True, align="C")
@@ -215,7 +211,6 @@ with aba_criar:
             pdf.cell(0, 6, f"WhatsApp: {telefone_formatado} | E-mail: {c_email}", ln=True)
             pdf.ln(5)
 
-            # Ajuste de layout de imagens para evitar sobreposição na tabela
             if imagens_upload:
                 x_pos = 30
                 for img_file in imagens_upload[:2]: 
@@ -225,8 +220,7 @@ with aba_criar:
                         tmp_path = tmp_file.name
                     pdf.image(tmp_path, x=x_pos, y=pdf.get_y(), w=70)
                     x_pos += 80 
-                # Aumento substancial do salto Y para limpar as imagens antes da tabela
-                pdf.set_y(pdf.get_y() + 95) 
+                pdf.set_y(pdf.get_y() + 85) 
             
             pdf.set_font("Arial", 'B', 9)
             pdf.cell(80, 8, " Descricao", border=1)
@@ -253,12 +247,10 @@ with aba_criar:
 
             pdf_bytes = pdf.output(dest='S').encode('latin1')
             
-            st.success("✅ Orçamento gerado! Visualize abaixo:")
-            b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-            pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="700" type="application/pdf" style="border: 1px solid #444;"></iframe>'
-            st.markdown(pdf_display, unsafe_allow_html=True)
+            st.success("✅ Orçamento processado e salvo!")
             
-            st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf")
+            # Chama o Pop-up com o PDF na tela centralizada
+            exibir_popup_pdf(pdf_bytes, numero_orcamento)
 
 # ==========================
 # ABA 2: BUSCAR E EDITAR HISTÓRICO
