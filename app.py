@@ -1,10 +1,12 @@
 import streamlit as st
 import os
+import tempfile
+from fpdf import FPDF
 
 st.set_page_config(page_title="Trasus - Orçamentos", layout="wide", initial_sidebar_state="expanded")
 
 # ==========================
-# TABELAS DE PREÇOS (Você pode alterar esses valores depois)
+# TABELAS DE PREÇOS
 # ==========================
 TABELA_MODELOS = {
     "Camiseta Básica": 35.00,
@@ -14,7 +16,7 @@ TABELA_MODELOS = {
 }
 
 TABELA_TECIDOS = {
-    "Algodão 100%": 0.00,       # Base sem custo extra
+    "Algodão 100%": 0.00,
     "Malha Fria (PV)": 2.50,
     "Dry-Fit": 5.00,
     "Piquet (Polo)": 8.00
@@ -35,11 +37,9 @@ st.markdown("""
     .stApp { background-color: #1c1c1c; color: #e0e0e0; }
     [data-testid="stSidebar"] { background-color: #262626; padding-top: 20px; }
     .stTextInput>div>div>input, .stSelectbox>div>div>select, .stNumberInput>div>div>input { background-color: #333333; color: #e0e0e0; border: 1px solid #444444; }
-    .stTextInput>label, .stSelectbox>label, .stNumberInput>label { color: #aaaaaa; }
+    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { color: #aaaaaa; }
     .stButton>button { background-color: #ff4c4c; color: white; border: none; padding: 10px 24px; border-radius: 4px; font-weight: bold; }
     .stButton>button:hover { background-color: #ff3333; color: white; }
-    
-    /* Estilo para a caixa de resultado final */
     .resultado-box { background-color: #333333; padding: 20px; border-radius: 8px; border-left: 5px solid #ff4c4c; margin-top: 20px;}
 </style>
 """, unsafe_allow_html=True)
@@ -71,14 +71,10 @@ col1, col2 = st.columns(2)
 
 with col1:
     modelo_camisa = st.selectbox("Modelo da Camisa", list(TABELA_MODELOS.keys()))
-    tipo_tecido = st.selectbox("Tipo de Tecido", list(TABELA_TECIDOS.keys()), index=2) # Index 2 = Dry-Fit
+    tipo_tecido = st.selectbox("Tipo de Tecido", list(TABELA_TECIDOS.keys()), index=2)
 
 with col2:
-    tipo_personalizacao = st.multiselect(
-        "Personalização (Selecione uma ou mais)",
-        list(TABELA_PERSONALIZACAO.keys()),
-        default=["Sublimação Total"]
-    )
+    tipo_personalizacao = st.multiselect("Personalização", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
     cor_principal = st.color_picker("Cor Predominante da Peça", "#000000")
 
 st.markdown("---")
@@ -88,37 +84,39 @@ st.markdown("---")
 # ==========================
 st.header("2. Grade de Tamanhos e Quantidades")
 col_p, col_m, col_g, col_gg, col_xg = st.columns(5)
-
-with col_p: qtd_p = st.number_input("Tamanho P", min_value=0, step=1, value=1)
-with col_m: qtd_m = st.number_input("Tamanho M", min_value=0, step=1, value=5)
-with col_g: qtd_g = st.number_input("Tamanho G", min_value=0, step=1, value=10)
-with col_gg: qtd_gg = st.number_input("Tamanho GG", min_value=0, step=1, value=1)
-with col_xg: qtd_xg = st.number_input("Tamanho XG", min_value=0, step=1, value=1)
+with col_p: qtd_p = st.number_input("P", min_value=0, step=1, value=1)
+with col_m: qtd_m = st.number_input("M", min_value=0, step=1, value=5)
+with col_g: qtd_g = st.number_input("G", min_value=0, step=1, value=10)
+with col_gg: qtd_gg = st.number_input("GG", min_value=0, step=1, value=1)
+with col_xg: qtd_xg = st.number_input("XG", min_value=0, step=1, value=1)
 
 st.markdown("---")
 
 # ==========================
-# LÓGICA DE CÁLCULO
+# ÁREA PRINCIPAL: Anexos
 # ==========================
-# 1. Calcular a quantidade total de peças
+st.header("3. Layout e Anexos")
+imagem_upload = st.file_uploader("Anexe a imagem com o layout/mockup da camisa (JPG ou PNG)", type=["jpg", "jpeg", "png"])
+
+st.markdown("---")
+
+# ==========================
+# LÓGICA DE CÁLCULO E PDF
+# ==========================
 quantidade_total = qtd_p + qtd_m + qtd_g + qtd_gg + qtd_xg
 
-if st.button("Calcular Orçamento", type="primary", use_container_width=True):
+if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=True):
     if quantidade_total == 0:
         st.error("⚠️ Por favor, adicione pelo menos uma peça na grade de tamanhos.")
     else:
-        # 2. Buscar os valores nos dicionários
+        # Cálculos Matemáticos
         valor_modelo = TABELA_MODELOS[modelo_camisa]
         valor_tecido = TABELA_TECIDOS[tipo_tecido]
-        
-        # 3. Somar todas as personalizações escolhidas
         valor_personalizacao = sum([TABELA_PERSONALIZACAO[item] for item in tipo_personalizacao])
-        
-        # 4. Calcular o preço unitário e o total
         preco_unitario = valor_modelo + valor_tecido + valor_personalizacao
         valor_final = preco_unitario * quantidade_total
         
-        # 5. Exibir o resultado formatado
+        # Exibição na Tela
         st.markdown(f"""
         <div class="resultado-box">
             <h3 style="color: #ffffff; margin-top: 0;">Resumo do Orçamento</h3>
@@ -130,3 +128,72 @@ if st.button("Calcular Orçamento", type="primary", use_container_width=True):
             <h2 style="color: #ff4c4c; margin-bottom: 0;">Valor Total: R$ {valor_final:.2f}</h2>
         </div>
         """, unsafe_allow_html=True)
+
+        # ==========================
+        # GERAÇÃO DO PDF
+        # ==========================
+        pdf = FPDF()
+        pdf.add_page()
+        
+        # 1. Background / Papel Timbrado (Se o arquivo timbrado.jpg existir na pasta)
+        if os.path.exists("timbrado.jpg"):
+            pdf.image("timbrado.jpg", x=0, y=0, w=210, h=297) # Preenche folha A4
+        
+        # 2. Margem inicial (ajuste dependendo do cabeçalho do seu timbrado)
+        pdf.set_y(60) 
+        
+        # 3. Dados do Cliente
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, "PROPOSTA COMERCIAL", ln=True, align="C")
+        pdf.ln(5)
+        pdf.set_font("Arial", '', 11)
+        pdf.cell(0, 7, f"Cliente: {cliente_nome} | Empresa: {cliente_empresa}", ln=True)
+        pdf.cell(0, 7, f"WhatsApp: {cliente_telefone} | E-mail: {cliente_email}", ln=True)
+        pdf.ln(10)
+
+        # 4. Inserir a Imagem do Mockup (se foi feito o upload)
+        if imagem_upload is not None:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+                tmp_file.write(imagem_upload.getvalue())
+                tmp_path = tmp_file.name
+            
+            # Centraliza a imagem no PDF (largura de 100mm)
+            pdf.image(tmp_path, x=55, y=pdf.get_y(), w=100)
+            pdf.set_y(pdf.get_y() + 110) # Pula o espaço da imagem para desenhar a tabela
+        
+        # 5. Construção da Tabela (Colunas)
+        pdf.set_font("Arial", 'B', 10)
+        # Cabeçalho da Tabela
+        pdf.cell(80, 10, " Descrição do Produto", border=1, align="L")
+        pdf.cell(35, 10, " Quantidades", border=1, align="C")
+        pdf.cell(35, 10, " Valor Unitário", border=1, align="C")
+        pdf.cell(40, 10, " Total", border=1, align="C")
+        pdf.ln()
+        
+        # Linha da Tabela
+        pdf.set_font("Arial", '', 10)
+        desc_produto = f"{modelo_camisa} ({tipo_tecido})"
+        # Tenta criar as linhas da tabela
+        pdf.cell(80, 10, f" {desc_produto[:40]}", border=1, align="L")
+        pdf.cell(35, 10, f" {quantidade_total} peças", border=1, align="C")
+        pdf.cell(35, 10, f" R$ {preco_unitario:.2f}", border=1, align="C")
+        pdf.cell(40, 10, f" R$ {valor_final:.2f}", border=1, align="C")
+        pdf.ln(15)
+
+        # Detalhamento da Grade
+        pdf.set_font("Arial", 'I', 9)
+        grade_texto = f"Detalhamento da Grade: P({qtd_p}), M({qtd_m}), G({qtd_g}), GG({qtd_gg}), XG({qtd_xg})"
+        personalizacoes = ", ".join(tipo_personalizacao)
+        pdf.cell(0, 5, grade_texto, ln=True)
+        pdf.cell(0, 5, f"Personalizações inclusas: {personalizacoes}", ln=True)
+
+        # Processar bytes do PDF
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.download_button(
+            label="📄 Fazer Download do Orçamento em PDF",
+            data=pdf_bytes,
+            file_name=f"Orcamento_Trasus_{cliente_empresa.replace(' ', '_')}.pdf",
+            mime="application/pdf"
+        )
