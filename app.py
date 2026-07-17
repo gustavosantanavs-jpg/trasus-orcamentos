@@ -67,7 +67,8 @@ with st.sidebar:
     st.header("👤 Dados do Cliente")
     cliente_nome = st.text_input("Nome / Contato", value="Marcelo")
     cliente_empresa = st.text_input("Empresa", value="MG propagapa")
-    cliente_telefone = st.text_input("WhatsApp", value="75981040304")
+    # Removido o value default para forçar a digitação correta ou deixar em branco inicialmente
+    cliente_telefone = st.text_input("WhatsApp (apenas números)", value="75981040304")
     cliente_email = st.text_input("E-mail")
 
 # ==========================
@@ -117,6 +118,13 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
     if quantidade_total == 0:
         st.error("⚠️ Por favor, adicione pelo menos uma peça na grade de tamanhos.")
     else:
+        # Formatação do WhatsApp (ex: de 75981040304 para 75.98104-0304)
+        telefone_limpo = ''.join(filter(str.isdigit, cliente_telefone))
+        if len(telefone_limpo) == 11:
+            telefone_formatado = f"{telefone_limpo[:2]}.{telefone_limpo[2:7]}-{telefone_limpo[7:]}"
+        else:
+            telefone_formatado = cliente_telefone # Mantém o original se não tiver 11 dígitos
+
         # Geração do Número Único
         numero_orcamento = f"TRC-{datetime.now().strftime('%y%m%d-%H%M%S')}"
 
@@ -134,6 +142,7 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
             <p style="font-size: 16px; color: #aaaaaa;">
                 <b>Orçamento Nº:</b> {numero_orcamento}<br>
                 <b>Cliente:</b> {cliente_nome} ({cliente_empresa})<br>
+                <b>WhatsApp:</b> {telefone_formatado}<br>
                 <b>Produto:</b> {quantidade_total}x {modelo_camisa} em {tipo_tecido}<br>
                 <b>Preço Unitário Calculado:</b> R$ {preco_unitario:.2f}
             </p>
@@ -151,13 +160,13 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
         if os.path.exists("background.jpg"):
             pdf.image("background.jpg", x=0, y=0, w=210, h=297)
         
-        # 2. Número do Orçamento no topo
-        pdf.set_y(20) 
+        # 2. Número do Orçamento no topo (Mais afastado da margem superior)
+        pdf.set_y(30) 
         pdf.set_font("Arial", 'B', 10)
         pdf.cell(0, 10, f"Orçamento: {numero_orcamento}", ln=True, align="R") 
         
-        # 3. Margem inicial para os dados
-        pdf.set_y(40) 
+        # 3. Margem inicial para os dados (Aumentado de 40 para 80 para descer abaixo da logo)
+        pdf.set_y(80) 
         
         # 4. Dados do Cliente
         pdf.set_font("Arial", 'B', 14)
@@ -165,7 +174,8 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
         pdf.ln(5)
         pdf.set_font("Arial", '', 11)
         pdf.cell(0, 7, f"Cliente: {cliente_nome} | Empresa: {cliente_empresa}", ln=True)
-        pdf.cell(0, 7, f"WhatsApp: {cliente_telefone} | E-mail: {cliente_email}", ln=True)
+        # Usando a variável telefone_formatado no PDF
+        pdf.cell(0, 7, f"WhatsApp: {telefone_formatado} | E-mail: {cliente_email}", ln=True)
         pdf.ln(10)
 
         # 5. Inserir a Imagem do Mockup (Tratada com Pillow)
