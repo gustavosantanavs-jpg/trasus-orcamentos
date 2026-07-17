@@ -25,7 +25,6 @@ def salvar_banco(dados):
     with open(ARQUIVO_BD, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
-# 🚀 NOVA FUNÇÃO: Cria a janela flutuante (Pop-up) para exibir o PDF
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
 def exibir_popup_pdf(pdf_bytes, numero_orcamento):
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
@@ -48,6 +47,9 @@ def novo_pedido():
     st.session_state.carrinho = []
     st.session_state.cliente_atual = {"nome": "", "empresa": "", "telefone": "", "email": ""}
     st.session_state.orcamento_editando = None
+
+def remover_item(index):
+    st.session_state.carrinho.pop(index)
 
 banco = carregar_banco()
 
@@ -147,20 +149,38 @@ with aba_criar:
     st.markdown("---")
 
     # ==========================
-    # ÁREA 2: RESUMO
+    # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
     # ==========================
     st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
     valor_geral_pedido = 0.0
 
-    for i, item in enumerate(st.session_state.carrinho):
-        valor_geral_pedido += item["total"]
-        st.markdown(f"""
-        <div class="box-carrinho">
-            <strong>Item {i+1}: {item['descricao']}</strong><br>
-            Qtd: {item['quantidade']} | V. Unitário: R$ {item['unitario']:.2f} | <strong>Subtotal: R$ {item['total']:.2f}</strong><br>
-            Grade: {item['grade']}
-        </div>
-        """, unsafe_allow_html=True)
+    if len(st.session_state.carrinho) == 0:
+        st.info("Nenhum item adicionado ao pedido ainda.")
+    else:
+        for i, item in enumerate(st.session_state.carrinho):
+            valor_geral_pedido += item["total"]
+            
+            # Divide o espaço entre os dados do produto e o botão de exclusão
+            col_info, col_btn = st.columns([5, 1])
+            
+            with col_info:
+                st.markdown(f"""
+                <div class="box-carrinho" style="margin-bottom: 0;">
+                    <strong>Item {i+1}: {item['descricao']}</strong><br>
+                    Qtd: {item['quantidade']} | V. Unitário: R$ {item['unitario']:.2f} | <strong>Subtotal: R$ {item['total']:.2f}</strong><br>
+                    Grade: {item['grade']}
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_btn:
+                # Cria um pequeno espaço acima do botão para alinhá-lo verticalmente com a caixa
+                st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
+                st.button("🗑️ Remover", key=f"btn_remover_{i}", on_click=remover_item, args=(i,), use_container_width=True)
+            
+            # Adiciona um espaço extra entre as linhas caso haja múltiplos produtos
+            st.markdown("<br>", unsafe_allow_html=True)
+    
+    st.markdown("---")
     
     # ==========================
     # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
@@ -170,7 +190,7 @@ with aba_criar:
 
     if st.button("Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
         if len(st.session_state.carrinho) == 0:
-            st.error("⚠️ O pedido está vazio.")
+            st.error("⚠️ O pedido está vazio. Adicione itens antes de gerar o orçamento.")
         else:
             telefone_limpo = ''.join(filter(str.isdigit, c_telefone))
             telefone_formatado = f"{telefone_limpo[:2]}.{telefone_limpo[2:7]}-{telefone_limpo[7:]}" if len(telefone_limpo) == 11 else c_telefone
@@ -249,7 +269,7 @@ with aba_criar:
             
             st.success("✅ Orçamento processado e salvo!")
             
-            # Chama o Pop-up com o PDF na tela centralizada
+            # Chama o Pop-up
             exibir_popup_pdf(pdf_bytes, numero_orcamento)
 
 # ==========================
