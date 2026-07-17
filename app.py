@@ -1,12 +1,19 @@
 import streamlit as st
 import os
 import tempfile
+from datetime import datetime
 from fpdf import FPDF
+from PIL import Image
 
-st.set_page_config(page_title="Trasus - Orçamentos", layout="wide", initial_sidebar_state="expanded")
+# Configuração inicial da página e tema dark
+st.set_page_config(
+    page_title="Trasus - Orçamentos",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 # ==========================
-# TABELAS DE PREÇOS
+# TABELAS DE PREÇOS (Altere os valores aqui)
 # ==========================
 TABELA_MODELOS = {
     "Camiseta Básica": 35.00,
@@ -30,7 +37,7 @@ TABELA_PERSONALIZACAO = {
 }
 
 # ==========================
-# ESTILOS VISUAIS
+# ESTILOS VISUAIS (CSS)
 # ==========================
 st.markdown("""
 <style>
@@ -48,7 +55,7 @@ st.title("👕 Orçamentos de Camisaria Trasus")
 st.markdown("---")
 
 # ==========================
-# BARRA LATERAL
+# BARRA LATERAL: Logo e Dados
 # ==========================
 with st.sidebar:
     if os.path.exists('logo_trasus.png'):
@@ -84,6 +91,7 @@ st.markdown("---")
 # ==========================
 st.header("2. Grade de Tamanhos e Quantidades")
 col_p, col_m, col_g, col_gg, col_xg = st.columns(5)
+
 with col_p: qtd_p = st.number_input("P", min_value=0, step=1, value=1)
 with col_m: qtd_m = st.number_input("M", min_value=0, step=1, value=5)
 with col_g: qtd_g = st.number_input("G", min_value=0, step=1, value=10)
@@ -109,6 +117,9 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
     if quantidade_total == 0:
         st.error("⚠️ Por favor, adicione pelo menos uma peça na grade de tamanhos.")
     else:
+        # Geração do Número Único
+        numero_orcamento = f"TRC-{datetime.now().strftime('%y%m%d-%H%M%S')}"
+
         # Cálculos Matemáticos
         valor_modelo = TABELA_MODELOS[modelo_camisa]
         valor_tecido = TABELA_TECIDOS[tipo_tecido]
@@ -121,6 +132,7 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
         <div class="resultado-box">
             <h3 style="color: #ffffff; margin-top: 0;">Resumo do Orçamento</h3>
             <p style="font-size: 16px; color: #aaaaaa;">
+                <b>Orçamento Nº:</b> {numero_orcamento}<br>
                 <b>Cliente:</b> {cliente_nome} ({cliente_empresa})<br>
                 <b>Produto:</b> {quantidade_total}x {modelo_camisa} em {tipo_tecido}<br>
                 <b>Preço Unitário Calculado:</b> R$ {preco_unitario:.2f}
@@ -135,14 +147,19 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
         pdf = FPDF()
         pdf.add_page()
         
-        # 1. Background / Papel Timbrado (Se o arquivo timbrado.jpg existir na pasta)
-        if os.path.exists("timbrado.jpg"):
-            pdf.image("timbrado.jpg", x=0, y=0, w=210, h=297) # Preenche folha A4
+        # 1. Background / Papel Timbrado A4
+        if os.path.exists("background.jpg"):
+            pdf.image("background.jpg", x=0, y=0, w=210, h=297)
         
-        # 2. Margem inicial (ajuste dependendo do cabeçalho do seu timbrado)
-        pdf.set_y(60) 
+        # 2. Número do Orçamento no topo
+        pdf.set_y(20) 
+        pdf.set_font("Arial", 'B', 10)
+        pdf.cell(0, 10, f"Orçamento: {numero_orcamento}", ln=True, align="R") 
         
-        # 3. Dados do Cliente
+        # 3. Margem inicial para os dados
+        pdf.set_y(40) 
+        
+        # 4. Dados do Cliente
         pdf.set_font("Arial", 'B', 14)
         pdf.cell(0, 10, "PROPOSTA COMERCIAL", ln=True, align="C")
         pdf.ln(5)
@@ -151,49 +168,48 @@ if st.button("Calcular e Gerar Orçamento", type="primary", use_container_width=
         pdf.cell(0, 7, f"WhatsApp: {cliente_telefone} | E-mail: {cliente_email}", ln=True)
         pdf.ln(10)
 
-        # 4. Inserir a Imagem do Mockup (se foi feito o upload)
+        # 5. Inserir a Imagem do Mockup (Tratada com Pillow)
         if imagem_upload is not None:
+            img = Image.open(imagem_upload)
+            img = img.convert('RGB')
+            
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
-                tmp_file.write(imagem_upload.getvalue())
+                img.save(tmp_file.name, format="JPEG")
                 tmp_path = tmp_file.name
             
-            # Centraliza a imagem no PDF (largura de 100mm)
             pdf.image(tmp_path, x=55, y=pdf.get_y(), w=100)
-            pdf.set_y(pdf.get_y() + 110) # Pula o espaço da imagem para desenhar a tabela
+            pdf.set_y(pdf.get_y() + 110) 
         
-        # 5. Construção da Tabela (Colunas)
+        # 6. Construção da Tabela Matemática
         pdf.set_font("Arial", 'B', 10)
-        # Cabeçalho da Tabela
         pdf.cell(80, 10, " Descrição do Produto", border=1, align="L")
         pdf.cell(35, 10, " Quantidades", border=1, align="C")
         pdf.cell(35, 10, " Valor Unitário", border=1, align="C")
         pdf.cell(40, 10, " Total", border=1, align="C")
         pdf.ln()
         
-        # Linha da Tabela
         pdf.set_font("Arial", '', 10)
         desc_produto = f"{modelo_camisa} ({tipo_tecido})"
-        # Tenta criar as linhas da tabela
         pdf.cell(80, 10, f" {desc_produto[:40]}", border=1, align="L")
         pdf.cell(35, 10, f" {quantidade_total} peças", border=1, align="C")
         pdf.cell(35, 10, f" R$ {preco_unitario:.2f}", border=1, align="C")
         pdf.cell(40, 10, f" R$ {valor_final:.2f}", border=1, align="C")
         pdf.ln(15)
 
-        # Detalhamento da Grade
+        # Detalhamento Final
         pdf.set_font("Arial", 'I', 9)
         grade_texto = f"Detalhamento da Grade: P({qtd_p}), M({qtd_m}), G({qtd_g}), GG({qtd_gg}), XG({qtd_xg})"
         personalizacoes = ", ".join(tipo_personalizacao)
         pdf.cell(0, 5, grade_texto, ln=True)
         pdf.cell(0, 5, f"Personalizações inclusas: {personalizacoes}", ln=True)
 
-        # Processar bytes do PDF
+        # Gera o Download do PDF
         pdf_bytes = pdf.output(dest='S').encode('latin1')
         
         st.markdown("<br>", unsafe_allow_html=True)
         st.download_button(
             label="📄 Fazer Download do Orçamento em PDF",
             data=pdf_bytes,
-            file_name=f"Orcamento_Trasus_{cliente_empresa.replace(' ', '_')}.pdf",
+            file_name=f"{numero_orcamento}_{cliente_empresa.replace(' ', '_')}.pdf",
             mime="application/pdf"
         )
