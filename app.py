@@ -7,8 +7,10 @@ from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
 
-# Configuração inicial
-st.set_page_config(page_title="Trasus - Gestão de Orçamentos", layout="wide", initial_sidebar_state="expanded")
+# ==========================
+# CONFIGURAÇÃO INICIAL
+# ==========================
+st.set_page_config(page_title="Trasus - Gestão de Orçamentos", page_icon="👕", layout="wide", initial_sidebar_state="expanded")
 
 ARQUIVO_BD = "banco_orcamentos.json"
 
@@ -28,7 +30,7 @@ def salvar_banco(dados):
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
 def exibir_popup_pdf(pdf_bytes, numero_orcamento):
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="650" type="application/pdf" style="border: none; border-radius: 8px;"></iframe>'
+    pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="650" type="application/pdf" style="border: none; border-radius: 8px; box-shadow: 0px 4px 12px rgba(0,0,0,0.5);"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
@@ -75,19 +77,82 @@ TABELA_TECIDOS = {"Algodão 100%": 0.00, "Malha Fria (PV)": 2.50, "Dry-Fit": 5.0
 TABELA_PERSONALIZACAO = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 4.50, "Bordado Peito": 8.00, "Bordado Costas": 15.00, "Sublimação Total": 12.00}
 
 # ==========================
-# ESTILOS VISUAIS (CSS)
+# ESTILOS VISUAIS (CSS) - Otimizado e com Animações
 # ==========================
 st.markdown("""
 <style>
+    /* Fundo e cores gerais */
     header[data-testid="stHeader"] { background-color: #1c1c1c !important; }
     .stApp { background-color: #1c1c1c; color: #e0e0e0; }
-    [data-testid="stSidebar"] { background-color: #262626; padding-top: 20px; }
-    .stTextInput>div>div>input, .stSelectbox>div>div>select, .stNumberInput>div>div>input { background-color: #333333; color: #e0e0e0; border: 1px solid #444444; }
-    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { color: #ffffff !important; font-weight: 500; }
-    .stButton>button { background-color: #4a4a4a !important; color: white !important; border: none !important; font-weight: bold !important; }
-    .stButton>button:hover { background-color: #5c5c5c !important; color: white !important; }
-    .box-carrinho { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #4a4a4a; margin-bottom: 10px;}
-    .box-desconto { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #d4a017; margin-bottom: 10px;}
+    [data-testid="stSidebar"] { background-color: #242424; padding-top: 20px; border-right: 1px solid #333333; }
+    
+    /* Inputs amigáveis ao mobile e com hover */
+    .stTextInput>div>div>input, .stSelectbox>div>div>select, .stNumberInput>div>div>input { 
+        background-color: #2b2b2b; 
+        color: #f0f0f0; 
+        border: 1px solid #444444; 
+        border-radius: 6px;
+        transition: all 0.3s ease; 
+    }
+    .stTextInput>div>div>input:focus, .stSelectbox>div>div>select:focus, .stNumberInput>div>div>input:focus { 
+        border: 1px solid #888888; 
+        box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+    }
+    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { 
+        color: #ffffff !important; 
+        font-weight: 600; 
+        letter-spacing: 0.5px;
+    }
+    
+    /* Botões Dinâmicos e Modernos */
+    .stButton>button { 
+        background-color: #383838 !important; 
+        color: #ffffff !important; 
+        border: 1px solid #555555 !important; 
+        font-weight: bold !important; 
+        border-radius: 8px !important;
+        transition: all 0.2s ease-in-out !important;
+        padding: 0.5rem 1rem;
+    }
+    .stButton>button:hover { 
+        background-color: #505050 !important; 
+        border-color: #777777 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+    .stButton>button:active {
+        transform: translateY(0);
+        box-shadow: none;
+    }
+
+    /* Caixas de destaque (Sem cores alaranjadas, apenas paleta chumbo/prata) */
+    .box-carrinho { 
+        background-color: #262626; 
+        padding: 18px; 
+        border-radius: 8px; 
+        border-left: 4px solid #6c757d; 
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+    }
+    .box-carrinho:hover {
+        background-color: #2a2a2a;
+    }
+    .box-desconto { 
+        background-color: #262626; 
+        padding: 18px; 
+        border-radius: 8px; 
+        border-left: 4px solid #aaaaaa; 
+        margin-bottom: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    /* Expansores estéticos */
+    [data-testid="stExpander"] {
+        border: 1px solid #444;
+        border-radius: 8px;
+        background-color: #222222;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -105,6 +170,7 @@ with aba_criar:
             st.title("👕 Novo Orçamento Trasus")
     
     with col_btn_novo:
+        st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
         st.button("🔄 Novo Pedido (Limpar)", on_click=novo_pedido, use_container_width=True)
 
     st.markdown("---")
@@ -114,14 +180,17 @@ with aba_criar:
     # ==========================
     with st.sidebar:
         if os.path.exists('logo_trasus.png'):
-            st.image('logo_trasus.png', use_column_width=True)
+            st.image('logo_trasus.png', use_container_width=True)
         else:
-            st.markdown("<h1 style='text-align: center; color: white;'>TRASUS</h1>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: white;'>TRASUS</h2>", unsafe_allow_html=True)
 
-        st.header("👤 Dados do Cliente")
+        st.markdown("---")
+        
+        # Coloquei dentro de um container com visual agradável
+        st.markdown("### 👤 Dados do Cliente")
         c_nome = st.text_input("Nome / Contato", value=st.session_state.cliente_atual["nome"])
         c_empresa = st.text_input("Empresa", value=st.session_state.cliente_atual["empresa"])
-        c_telefone = st.text_input("WhatsApp (números)", value=st.session_state.cliente_atual["telefone"])
+        c_telefone = st.text_input("WhatsApp (apenas números)", value=st.session_state.cliente_atual["telefone"])
         c_email = st.text_input("E-mail", value=st.session_state.cliente_atual["email"])
         
         st.session_state.cliente_atual = {"nome": c_nome, "empresa": c_empresa, "telefone": c_telefone, "email": c_email}
@@ -129,7 +198,7 @@ with aba_criar:
     # ==========================
     # ÁREA 1: ADICIONAR ITEM
     # ==========================
-    st.header("1. Configurar Novo Item")
+    st.subheader("1️⃣ Configurar Novo Item")
     col1, col2 = st.columns(2)
     with col1:
         modelo_selecionado = st.selectbox("Produto", list(TABELA_MODELOS.keys()))
@@ -137,6 +206,7 @@ with aba_criar:
     with col2:
         personalizacao_selecionada = st.multiselect("Personalizações", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
 
+    st.markdown("**Grade de Tamanhos:**")
     col_p, col_m, col_g, col_gg, col_xg = st.columns(5)
     with col_p: qtd_p = st.number_input("P", min_value=0, step=1, value=0)
     with col_m: qtd_m = st.number_input("M", min_value=0, step=1, value=0)
@@ -146,9 +216,10 @@ with aba_criar:
 
     qtd_item_total = qtd_p + qtd_m + qtd_g + qtd_gg + qtd_xg
 
-    if st.button("➕ Adicionar Item"):
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("➕ Adicionar Item ao Pedido"):
         if qtd_item_total == 0:
-            st.warning("Adicione quantidades na grade.")
+            st.warning("⚠️ Adicione quantidades na grade antes de prosseguir.")
         else:
             preco_unit = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
             st.session_state.carrinho.append({
@@ -166,7 +237,7 @@ with aba_criar:
     # ==========================
     # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
     # ==========================
-    st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
+    st.subheader(f"2️⃣ Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
     subtotal_pedido = 0.0
 
     if len(st.session_state.carrinho) == 0:
@@ -175,32 +246,27 @@ with aba_criar:
         for i, item in enumerate(st.session_state.carrinho):
             subtotal_pedido += item["total"]
             
-            # Divide o espaço entre os dados do produto e o botão de exclusão
-            col_info, col_btn = st.columns([5, 1])
+            col_info, col_btn = st.columns([4, 1])
             
             with col_info:
                 st.markdown(f"""
-                <div class="box-carrinho" style="margin-bottom: 0;">
-                    <strong>Item {i+1}: {item['descricao']}</strong><br>
-                    Qtd: {item['quantidade']} | V. Unitário: R$ {item['unitario']:.2f} | <strong>Subtotal: R$ {item['total']:.2f}</strong><br>
-                    Grade: {item['grade']}
+                <div class="box-carrinho">
+                    <strong style="font-size: 1.1em; color: #ffffff;">Item {i+1}: {item['descricao']}</strong><br>
+                    <span style="color: #cccccc;">Qtd: {item['quantidade']} | V. Unitário: R$ {item['unitario']:.2f}</span> | <strong>Subtotal: R$ {item['total']:.2f}</strong><br>
+                    <span style="font-size: 0.9em; color: #999999;">Grade: {item['grade']}</span>
                 </div>
                 """, unsafe_allow_html=True)
                 
             with col_btn:
-                # Cria um pequeno espaço acima do botão para alinhá-lo verticalmente com a caixa
-                st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
-                st.button("🗑️ Remover", key=f"btn_remover_{i}", on_click=remover_item, args=(i,), use_container_width=True)
-            
-            # Adiciona um espaço extra entre as linhas caso haja múltiplos produtos
-            st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top: 35px;'></div>", unsafe_allow_html=True)
+                st.button("🗑️", key=f"btn_remover_{i}", help="Remover item", on_click=remover_item, args=(i,), use_container_width=True)
     
     st.markdown("---")
 
     # ==========================
     # ÁREA 2.1: DESCONTO E AJUSTE MANUAL DE VALOR
     # ==========================
-    st.header("2.1 Desconto e Ajuste de Valor")
+    st.subheader("⚙️ Desconto e Ajuste de Valor")
     st.markdown('<div class="box-desconto">', unsafe_allow_html=True)
 
     col_desc1, col_desc2 = st.columns(2)
@@ -221,7 +287,7 @@ with aba_criar:
             st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
             st.caption("Nenhum desconto aplicado.")
 
-    # Calcula valor do desconto e valor com desconto aplicado
+    # Calcula valor do desconto
     if desconto_tipo == "Desconto (%)":
         valor_desconto_calculado = subtotal_pedido * (desconto_valor / 100)
     elif desconto_tipo == "Desconto (R$)":
@@ -233,7 +299,7 @@ with aba_criar:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    ajustar_manual = st.checkbox("✏️ Ajustar valor final manualmente (sobrepõe o desconto acima)", value=st.session_state.valor_manual_ativado)
+    ajustar_manual = st.checkbox("✏️ Ajustar valor final manualmente", value=st.session_state.valor_manual_ativado, help="Sobrepõe os descontos acima.")
 
     valor_manual_input = st.session_state.valor_manual
     if ajustar_manual:
@@ -243,7 +309,7 @@ with aba_criar:
     else:
         valor_final_pedido = valor_com_desconto
 
-    # Persiste escolhas na sessão
+    # Persiste na sessão
     st.session_state.desconto_tipo = desconto_tipo
     st.session_state.desconto_valor = desconto_valor
     st.session_state.valor_manual_ativado = ajustar_manual
@@ -265,10 +331,11 @@ with aba_criar:
     # ==========================
     # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
     # ==========================
-    st.header("3. Anexos e Finalização")
-    imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    st.subheader("3️⃣ Anexos e Finalização")
+    imagens_upload = st.file_uploader("📸 Anexe imagens do projeto (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-    if st.button("Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🚀 Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
         if len(st.session_state.carrinho) == 0:
             st.error("⚠️ O pedido está vazio. Adicione itens antes de gerar o orçamento.")
         else:
@@ -354,7 +421,7 @@ with aba_criar:
             pdf.cell(45, 7, f"R$ {subtotal_pedido:.2f}", align="C")
             pdf.ln()
 
-            # Linha de Desconto (se houver e não estiver no modo manual)
+            # Linha de Desconto
             if not ajustar_manual and valor_desconto_calculado > 0:
                 if desconto_tipo == "Desconto (%)":
                     label_desconto = f"Desconto ({desconto_valor:.0f}%):"
@@ -372,8 +439,6 @@ with aba_criar:
             pdf_bytes = pdf.output(dest='S').encode('latin1')
             
             st.success("✅ Orçamento processado e salvo!")
-            
-            # Chama o Pop-up
             exibir_popup_pdf(pdf_bytes, numero_orcamento)
 
 # ==========================
@@ -400,7 +465,7 @@ with aba_buscar:
                     col_edit, col_del = st.columns(2)
 
                     with col_edit:
-                        if st.button("✏️ Editar este orçamento", key=f"edit_{num}", use_container_width=True):
+                        if st.button("✏️ Editar", key=f"edit_{num}", use_container_width=True):
                             st.session_state.cliente_atual = dados['cliente']
                             st.session_state.carrinho = dados['carrinho']
                             st.session_state.orcamento_editando = num
@@ -408,26 +473,25 @@ with aba_buscar:
                             st.session_state.desconto_valor = dados.get('desconto_valor', 0.0)
                             st.session_state.valor_manual_ativado = dados.get('valor_manual_ativado', False)
                             st.session_state.valor_manual = dados.get('valor_manual', 0.0)
-                            st.success("Orçamento carregado! Volte para a aba 'Criar / Editar' no topo da tela para alterar os dados.")
+                            st.success("✅ Orçamento carregado! Volte para a aba 'Criar / Editar'.")
 
                     with col_del:
                         if st.session_state.confirmar_exclusao == num:
-                            st.warning("Tem certeza que deseja excluir este orçamento? Essa ação não pode ser desfeita.")
+                            st.warning("⚠️ Deseja excluir? Essa ação não pode ser desfeita.")
                             col_sim, col_nao = st.columns(2)
                             with col_sim:
-                                if st.button("✅ Confirmar Exclusão", key=f"confirma_del_{num}", use_container_width=True):
+                                if st.button("✅ Sim", key=f"confirma_del_{num}", use_container_width=True):
                                     del banco[num]
                                     salvar_banco(banco)
                                     st.session_state.confirmar_exclusao = None
                                     if st.session_state.orcamento_editando == num:
                                         novo_pedido()
-                                    st.success(f"Orçamento {num} excluído com sucesso!")
                                     st.rerun()
                             with col_nao:
-                                if st.button("❌ Cancelar", key=f"cancela_del_{num}", use_container_width=True):
+                                if st.button("❌ Não", key=f"cancela_del_{num}", use_container_width=True):
                                     st.session_state.confirmar_exclusao = None
                                     st.rerun()
                         else:
-                            if st.button("🗑️ Excluir Orçamento", key=f"del_{num}", use_container_width=True):
+                            if st.button("🗑️ Excluir", key=f"del_{num}", use_container_width=True):
                                 st.session_state.confirmar_exclusao = num
                                 st.rerun()
