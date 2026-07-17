@@ -42,11 +42,25 @@ if 'cliente_atual' not in st.session_state:
     st.session_state.cliente_atual = {"nome": "", "empresa": "", "telefone": "", "email": ""}
 if 'orcamento_editando' not in st.session_state:
     st.session_state.orcamento_editando = None
+if 'desconto_tipo' not in st.session_state:
+    st.session_state.desconto_tipo = "Sem desconto"
+if 'desconto_valor' not in st.session_state:
+    st.session_state.desconto_valor = 0.0
+if 'valor_manual_ativado' not in st.session_state:
+    st.session_state.valor_manual_ativado = False
+if 'valor_manual' not in st.session_state:
+    st.session_state.valor_manual = 0.0
+if 'confirmar_exclusao' not in st.session_state:
+    st.session_state.confirmar_exclusao = None
 
 def novo_pedido():
     st.session_state.carrinho = []
     st.session_state.cliente_atual = {"nome": "", "empresa": "", "telefone": "", "email": ""}
     st.session_state.orcamento_editando = None
+    st.session_state.desconto_tipo = "Sem desconto"
+    st.session_state.desconto_valor = 0.0
+    st.session_state.valor_manual_ativado = False
+    st.session_state.valor_manual = 0.0
 
 def remover_item(index):
     st.session_state.carrinho.pop(index)
@@ -73,6 +87,7 @@ st.markdown("""
     .stButton>button { background-color: #4a4a4a !important; color: white !important; border: none !important; font-weight: bold !important; }
     .stButton>button:hover { background-color: #5c5c5c !important; color: white !important; }
     .box-carrinho { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #4a4a4a; margin-bottom: 10px;}
+    .box-desconto { background-color: #262626; padding: 15px; border-radius: 8px; border-left: 4px solid #d4a017; margin-bottom: 10px;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -152,13 +167,13 @@ with aba_criar:
     # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
     # ==========================
     st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
-    valor_geral_pedido = 0.0
+    subtotal_pedido = 0.0
 
     if len(st.session_state.carrinho) == 0:
         st.info("Nenhum item adicionado ao pedido ainda.")
     else:
         for i, item in enumerate(st.session_state.carrinho):
-            valor_geral_pedido += item["total"]
+            subtotal_pedido += item["total"]
             
             # Divide o espaço entre os dados do produto e o botão de exclusão
             col_info, col_btn = st.columns([5, 1])
@@ -180,6 +195,71 @@ with aba_criar:
             # Adiciona um espaço extra entre as linhas caso haja múltiplos produtos
             st.markdown("<br>", unsafe_allow_html=True)
     
+    st.markdown("---")
+
+    # ==========================
+    # ÁREA 2.1: DESCONTO E AJUSTE MANUAL DE VALOR
+    # ==========================
+    st.header("2.1 Desconto e Ajuste de Valor")
+    st.markdown('<div class="box-desconto">', unsafe_allow_html=True)
+
+    col_desc1, col_desc2 = st.columns(2)
+    with col_desc1:
+        opcoes_desconto = ["Sem desconto", "Desconto (%)", "Desconto (R$)"]
+        desconto_tipo = st.selectbox(
+            "Tipo de Desconto",
+            opcoes_desconto,
+            index=opcoes_desconto.index(st.session_state.desconto_tipo) if st.session_state.desconto_tipo in opcoes_desconto else 0
+        )
+    with col_desc2:
+        if desconto_tipo == "Desconto (%)":
+            desconto_valor = st.number_input("Percentual de Desconto (%)", min_value=0.0, max_value=100.0, step=1.0, value=float(st.session_state.desconto_valor))
+        elif desconto_tipo == "Desconto (R$)":
+            desconto_valor = st.number_input("Valor do Desconto (R$)", min_value=0.0, step=1.0, value=float(st.session_state.desconto_valor))
+        else:
+            desconto_valor = 0.0
+            st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+            st.caption("Nenhum desconto aplicado.")
+
+    # Calcula valor do desconto e valor com desconto aplicado
+    if desconto_tipo == "Desconto (%)":
+        valor_desconto_calculado = subtotal_pedido * (desconto_valor / 100)
+    elif desconto_tipo == "Desconto (R$)":
+        valor_desconto_calculado = desconto_valor
+    else:
+        valor_desconto_calculado = 0.0
+
+    valor_com_desconto = max(subtotal_pedido - valor_desconto_calculado, 0.0)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    ajustar_manual = st.checkbox("✏️ Ajustar valor final manualmente (sobrepõe o desconto acima)", value=st.session_state.valor_manual_ativado)
+
+    valor_manual_input = st.session_state.valor_manual
+    if ajustar_manual:
+        valor_padrao_manual = st.session_state.valor_manual if st.session_state.valor_manual_ativado and st.session_state.valor_manual > 0 else valor_com_desconto
+        valor_manual_input = st.number_input("Valor Final do Pedido (R$)", min_value=0.0, step=1.0, value=float(valor_padrao_manual))
+        valor_final_pedido = valor_manual_input
+    else:
+        valor_final_pedido = valor_com_desconto
+
+    # Persiste escolhas na sessão
+    st.session_state.desconto_tipo = desconto_tipo
+    st.session_state.desconto_valor = desconto_valor
+    st.session_state.valor_manual_ativado = ajustar_manual
+    st.session_state.valor_manual = valor_manual_input
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_m1, col_m2, col_m3 = st.columns(3)
+    col_m1.metric("Subtotal", f"R$ {subtotal_pedido:.2f}")
+    if ajustar_manual:
+        col_m2.metric("Ajuste Manual", "Ativo")
+    else:
+        col_m2.metric("Desconto Aplicado", f"R$ {valor_desconto_calculado:.2f}")
+    col_m3.metric("Total Final", f"R$ {valor_final_pedido:.2f}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown("---")
     
     # ==========================
@@ -204,7 +284,13 @@ with aba_criar:
             banco[numero_orcamento] = {
                 "cliente": st.session_state.cliente_atual,
                 "carrinho": st.session_state.carrinho,
-                "total": valor_geral_pedido,
+                "subtotal": subtotal_pedido,
+                "desconto_tipo": desconto_tipo,
+                "desconto_valor": desconto_valor,
+                "valor_desconto_calculado": valor_desconto_calculado,
+                "valor_manual_ativado": ajustar_manual,
+                "valor_manual": valor_manual_input,
+                "total": valor_final_pedido,
                 "data": datetime.now().strftime("%d/%m/%Y %H:%M")
             }
             salvar_banco(banco)
@@ -260,10 +346,28 @@ with aba_criar:
                 pdf.cell(190, 5, f"   Grade: {item['grade']} | Extras: {item['personalizacao']}", border="LBR")
                 pdf.ln()
 
-            pdf.ln(5)
+            pdf.ln(3)
+
+            # Linha de Subtotal
+            pdf.set_font("Arial", '', 10)
+            pdf.cell(145, 7, "Subtotal:", align="R")
+            pdf.cell(45, 7, f"R$ {subtotal_pedido:.2f}", align="C")
+            pdf.ln()
+
+            # Linha de Desconto (se houver e não estiver no modo manual)
+            if not ajustar_manual and valor_desconto_calculado > 0:
+                if desconto_tipo == "Desconto (%)":
+                    label_desconto = f"Desconto ({desconto_valor:.0f}%):"
+                else:
+                    label_desconto = "Desconto:"
+                pdf.cell(145, 7, label_desconto, align="R")
+                pdf.cell(45, 7, f"- R$ {valor_desconto_calculado:.2f}", align="C")
+                pdf.ln()
+
+            pdf.ln(2)
             pdf.set_font("Arial", 'B', 11)
             pdf.cell(145, 10, "TOTAL DO PEDIDO:", align="R")
-            pdf.cell(45, 10, f"R$ {valor_geral_pedido:.2f}", align="C")
+            pdf.cell(45, 10, f"R$ {valor_final_pedido:.2f}", align="C")
 
             pdf_bytes = pdf.output(dest='S').encode('latin1')
             
@@ -273,7 +377,7 @@ with aba_criar:
             exibir_popup_pdf(pdf_bytes, numero_orcamento)
 
 # ==========================
-# ABA 2: BUSCAR E EDITAR HISTÓRICO
+# ABA 2: BUSCAR, EDITAR E EXCLUIR HISTÓRICO
 # ==========================
 with aba_buscar:
     st.title("🔍 Histórico de Orçamentos")
@@ -282,15 +386,48 @@ with aba_buscar:
     if len(banco) == 0:
         st.info("Nenhum orçamento salvo ainda.")
     else:
-        for num, dados in reversed(banco.items()):
+        for num, dados in reversed(list(banco.items())):
             texto_busca = f"{num} {dados['cliente']['nome']} {dados['cliente']['empresa']}".lower()
             if termo_busca.lower() in texto_busca:
                 with st.expander(f"📄 {num} - {dados['cliente']['nome']} ({dados['cliente']['empresa']}) - R$ {dados['total']:.2f}"):
                     st.write(f"**Data:** {dados['data']}")
                     st.write(f"**Itens:** {len(dados['carrinho'])}")
-                    
-                    if st.button(f"✏️ Editar este orçamento", key=f"edit_{num}"):
-                        st.session_state.cliente_atual = dados['cliente']
-                        st.session_state.carrinho = dados['carrinho']
-                        st.session_state.orcamento_editando = num
-                        st.success("Orçamento carregado! Volte para a aba 'Criar / Editar' no topo da tela para alterar os dados.")
+                    if dados.get('desconto_tipo', 'Sem desconto') != 'Sem desconto' and not dados.get('valor_manual_ativado', False):
+                        st.write(f"**Subtotal:** R$ {dados.get('subtotal', dados['total']):.2f} | **Desconto:** R$ {dados.get('valor_desconto_calculado', 0):.2f}")
+                    if dados.get('valor_manual_ativado', False):
+                        st.write("**Valor ajustado manualmente.**")
+
+                    col_edit, col_del = st.columns(2)
+
+                    with col_edit:
+                        if st.button("✏️ Editar este orçamento", key=f"edit_{num}", use_container_width=True):
+                            st.session_state.cliente_atual = dados['cliente']
+                            st.session_state.carrinho = dados['carrinho']
+                            st.session_state.orcamento_editando = num
+                            st.session_state.desconto_tipo = dados.get('desconto_tipo', 'Sem desconto')
+                            st.session_state.desconto_valor = dados.get('desconto_valor', 0.0)
+                            st.session_state.valor_manual_ativado = dados.get('valor_manual_ativado', False)
+                            st.session_state.valor_manual = dados.get('valor_manual', 0.0)
+                            st.success("Orçamento carregado! Volte para a aba 'Criar / Editar' no topo da tela para alterar os dados.")
+
+                    with col_del:
+                        if st.session_state.confirmar_exclusao == num:
+                            st.warning("Tem certeza que deseja excluir este orçamento? Essa ação não pode ser desfeita.")
+                            col_sim, col_nao = st.columns(2)
+                            with col_sim:
+                                if st.button("✅ Confirmar Exclusão", key=f"confirma_del_{num}", use_container_width=True):
+                                    del banco[num]
+                                    salvar_banco(banco)
+                                    st.session_state.confirmar_exclusao = None
+                                    if st.session_state.orcamento_editando == num:
+                                        novo_pedido()
+                                    st.success(f"Orçamento {num} excluído com sucesso!")
+                                    st.rerun()
+                            with col_nao:
+                                if st.button("❌ Cancelar", key=f"cancela_del_{num}", use_container_width=True):
+                                    st.session_state.confirmar_exclusao = None
+                                    st.rerun()
+                        else:
+                            if st.button("🗑️ Excluir Orçamento", key=f"del_{num}", use_container_width=True):
+                                st.session_state.confirmar_exclusao = num
+                                st.rerun()
