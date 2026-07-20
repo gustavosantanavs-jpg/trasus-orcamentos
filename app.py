@@ -3,6 +3,7 @@ import os
 import tempfile
 import json
 import base64
+import urllib.parse
 from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
@@ -40,12 +41,86 @@ def salvar_banco_os(dados):
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
-def exibir_popup_pdf(pdf_bytes, numero_orcamento):
+def exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=None, nome_cliente=""):
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
     pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="650" type="application/pdf" style="border: none; border-radius: 8px;"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
-    st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
+
+    col_dl, col_wa = st.columns(2)
+    with col_dl:
+        st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
+
+    with col_wa:
+        share_component = f"""
+        <div style="width:100%;">
+            <button id="btn_share_wa_{numero_orcamento}" style="
+                width:100%; padding:0.6rem 1rem; border:none; border-radius:8px;
+                background: linear-gradient(135deg, #25D366, #128C7E); color:#ffffff;
+                font-weight:700; letter-spacing:0.5px; text-transform:uppercase;
+                cursor:pointer; box-shadow:0 0 14px rgba(37,211,102,0.35); font-family:sans-serif;">
+                📲 Enviar para WhatsApp
+            </button>
+            <div id="share_status_{numero_orcamento}" style="font-size:12px; color:#9fd8ff; margin-top:6px; font-family:sans-serif;"></div>
+        </div>
+        <script>
+        (function() {{
+            const b64Data = "{b64_pdf}";
+            const fileName = "{numero_orcamento}.pdf";
+            const statusEl = document.getElementById("share_status_{numero_orcamento}");
+
+            function b64toBlob(b64, contentType) {{
+                const byteChars = atob(b64);
+                const byteArrays = [];
+                for (let offset = 0; offset < byteChars.length; offset += 512) {{
+                    const slice = byteChars.slice(offset, offset + 512);
+                    const byteNumbers = new Array(slice.length);
+                    for (let i = 0; i < slice.length; i++) {{
+                        byteNumbers[i] = slice.charCodeAt(i);
+                    }}
+                    byteArrays.push(new Uint8Array(byteNumbers));
+                }}
+                return new Blob(byteArrays, {{type: contentType}});
+            }}
+
+            document.getElementById("btn_share_wa_{numero_orcamento}").addEventListener("click", async function() {{
+                try {{
+                    const blob = b64toBlob(b64Data, "application/pdf");
+                    const file = new File([blob], fileName, {{type: "application/pdf"}});
+
+                    if (navigator.canShare && navigator.canShare({{files: [file]}})) {{
+                        await navigator.share({{
+                            files: [file],
+                            title: "Orçamento {numero_orcamento}",
+                            text: "Segue o orçamento {numero_orcamento}"
+                        }});
+                    }} else {{
+                        statusEl.innerText = "Este navegador não suporta envio direto de arquivo. Baixe o PDF e anexe manualmente no WhatsApp.";
+                    }}
+                }} catch (err) {{
+                    if (err.name !== "AbortError") {{
+                        statusEl.innerText = "Não foi possível abrir o compartilhamento. Baixe o PDF e anexe manualmente.";
+                    }}
+                }}
+            }});
+        }})();
+        </script>
+        """
+        st.components.v1.html(share_component, height=70)
+
+    if telefone_cliente:
+        telefone_limpo = ''.join(filter(str.isdigit, telefone_cliente))
+        if telefone_limpo:
+            if len(telefone_limpo) <= 11:
+                telefone_limpo = "55" + telefone_limpo
+            mensagem = f"Olá {nome_cliente}! Segue o orçamento {numero_orcamento} da Trasus."
+            mensagem_codificada = urllib.parse.quote(mensagem)
+            link_wa = f"https://wa.me/{telefone_limpo}?text={mensagem_codificada}"
+            st.markdown(
+                f'<a href="{link_wa}" target="_blank" style="display:block; text-align:center; margin-top:10px; color:#25D366; font-weight:600; text-decoration:none;">💬 Abrir conversa com {nome_cliente or "o cliente"} no WhatsApp</a>',
+                unsafe_allow_html=True
+            )
+    st.caption("Dica: toque em 'Enviar para WhatsApp' para compartilhar o PDF direto pelo menu do seu celular, sem precisar baixar antes.")
 
 # ==========================
 # INICIANDO A MEMÓRIA DA SESSÃO
@@ -573,7 +648,7 @@ with aba_criar:
             st.success("✅ Orçamento processado e salvo!")
             
             # Chama o Pop-up
-            exibir_popup_pdf(pdf_bytes, numero_orcamento)
+            exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=c_telefone, nome_cliente=c_nome)
 
 # ==========================
 # ABA 2: BUSCAR, EDITAR E EXCLUIR HISTÓRICO
@@ -847,7 +922,7 @@ with aba_os:
 
             pdf_os_bytes = pdf_os.output(dest='S').encode('latin1')
             st.success(f"✅ Ordem de Serviço {numero_os} salva com sucesso!")
-            exibir_popup_pdf(pdf_os_bytes, numero_os)
+            exibir_popup_pdf(pdf_os_bytes, numero_os, telefone_cliente=cliente_os.get('telefone', ''), nome_cliente=cliente_os.get('nome', ''))
 
     st.markdown("---")
 
