@@ -7,10 +7,8 @@ from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
 
-# ==========================
-# CONFIGURAÇÃO INICIAL
-# ==========================
-st.set_page_config(page_title="Trasus - Gestão de Orçamentos", page_icon="👕", layout="wide", initial_sidebar_state="expanded")
+# Configuração inicial
+st.set_page_config(page_title="Trasus - Gestão de Orçamentos", layout="wide", initial_sidebar_state="expanded")
 
 ARQUIVO_BD = "banco_orcamentos.json"
 
@@ -27,10 +25,24 @@ def salvar_banco(dados):
     with open(ARQUIVO_BD, "w", encoding="utf-8") as f:
         json.dump(dados, f, ensure_ascii=False, indent=4)
 
+ARQUIVO_BD_OS = "banco_os.json"
+FOTOS_OS_DIR = "fotos_os"
+os.makedirs(FOTOS_OS_DIR, exist_ok=True)
+
+def carregar_banco_os():
+    if os.path.exists(ARQUIVO_BD_OS):
+        with open(ARQUIVO_BD_OS, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def salvar_banco_os(dados):
+    with open(ARQUIVO_BD_OS, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=4)
+
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
 def exibir_popup_pdf(pdf_bytes, numero_orcamento):
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="650" type="application/pdf" style="border: none; border-radius: 8px; box-shadow: 0px 4px 12px rgba(0,0,0,0.5);"></iframe>'
+    pdf_display = f'<iframe src="data:application/pdf;base64,{b64_pdf}" width="100%" height="650" type="application/pdf" style="border: none; border-radius: 8px;"></iframe>'
     st.markdown(pdf_display, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
     st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
@@ -67,7 +79,16 @@ def novo_pedido():
 def remover_item(index):
     st.session_state.carrinho.pop(index)
 
+if 'os_editando' not in st.session_state:
+    st.session_state.os_editando = None
+if 'confirmar_exclusao_os' not in st.session_state:
+    st.session_state.confirmar_exclusao_os = None
+
+def nova_os():
+    st.session_state.os_editando = None
+
 banco = carregar_banco()
+banco_os = carregar_banco_os()
 
 # ==========================
 # TABELAS DE PREÇOS
@@ -77,89 +98,202 @@ TABELA_TECIDOS = {"Algodão 100%": 0.00, "Malha Fria (PV)": 2.50, "Dry-Fit": 5.0
 TABELA_PERSONALIZACAO = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 4.50, "Bordado Peito": 8.00, "Bordado Costas": 15.00, "Sublimação Total": 12.00}
 
 # ==========================
-# ESTILOS VISUAIS (CSS) - Otimizado e com Animações
+# ESTILOS VISUAIS (CSS) - TEMA TECNOLÓGICO
 # ==========================
 st.markdown("""
 <style>
-    /* Fundo e cores gerais */
-    header[data-testid="stHeader"] { background-color: #1c1c1c !important; }
-    .stApp { background-color: #1c1c1c; color: #e0e0e0; }
-    [data-testid="stSidebar"] { background-color: #242424; padding-top: 20px; border-right: 1px solid #333333; }
-    
-    /* Inputs amigáveis ao mobile e com hover */
-    .stTextInput>div>div>input, .stSelectbox>div>div>select, .stNumberInput>div>div>input { 
-        background-color: #2b2b2b; 
-        color: #f0f0f0; 
-        border: 1px solid #444444; 
-        border-radius: 6px;
-        transition: all 0.3s ease; 
-    }
-    .stTextInput>div>div>input:focus, .stSelectbox>div>div>select:focus, .stNumberInput>div>div>input:focus { 
-        border: 1px solid #888888; 
-        box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
-    }
-    .stTextInput>label, .stSelectbox>label, .stNumberInput>label, .stFileUploader>label { 
-        color: #ffffff !important; 
-        font-weight: 600; 
-        letter-spacing: 0.5px;
-    }
-    
-    /* Botões Dinâmicos e Modernos */
-    .stButton>button { 
-        background-color: #383838 !important; 
-        color: #ffffff !important; 
-        border: 1px solid #555555 !important; 
-        font-weight: bold !important; 
-        border-radius: 8px !important;
-        transition: all 0.2s ease-in-out !important;
-        padding: 0.5rem 1rem;
-    }
-    .stButton>button:hover { 
-        background-color: #505050 !important; 
-        border-color: #777777 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    }
-    .stButton>button:active {
-        transform: translateY(0);
-        box-shadow: none;
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+
+    :root {
+        --neon-cyan: #00e5ff;
+        --neon-purple: #a855f7;
+        --bg-dark: #0a0e17;
+        --bg-panel: #121826;
+        --bg-panel-2: #161d2e;
+        --border-glow: rgba(0, 229, 255, 0.35);
     }
 
-    /* Caixas de destaque (Sem cores alaranjadas, apenas paleta chumbo/prata) */
-    .box-carrinho { 
-        background-color: #262626; 
-        padding: 18px; 
-        border-radius: 8px; 
-        border-left: 4px solid #6c757d; 
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
+    header[data-testid="stHeader"] { background-color: var(--bg-dark) !important; }
+
+    .stApp {
+        background: radial-gradient(circle at 15% 0%, #0f1b2e 0%, #0a0e17 45%, #05070c 100%);
+        color: #e6f1ff;
+        font-family: 'Rajdhani', sans-serif;
     }
-    .box-carrinho:hover {
-        background-color: #2a2a2a;
+
+    h1, h2, h3 {
+        font-family: 'Orbitron', sans-serif !important;
+        letter-spacing: 1px;
+        color: #eaf6ff !important;
+        text-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
     }
-    .box-desconto { 
-        background-color: #262626; 
-        padding: 18px; 
-        border-radius: 8px; 
-        border-left: 4px solid #aaaaaa; 
-        margin-bottom: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0d1220 0%, #10182b 100%);
+        border-right: 1px solid var(--border-glow);
+        padding-top: 10px;
     }
-    
-    /* Expansores estéticos */
+
+    .stTextInput>div>div>input, .stSelectbox>div>div>select,
+    .stNumberInput>div>div>input, textarea {
+        background-color: #0f1626 !important;
+        color: #e6f1ff !important;
+        border: 1px solid #263049 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease-in-out;
+    }
+    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
+        border: 1px solid var(--neon-cyan) !important;
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important;
+    }
+    .stTextInput>label, .stSelectbox>label, .stNumberInput>label,
+    .stFileUploader>label, .stMultiSelect>label {
+        color: #9fd8ff !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.3px;
+    }
+
+    .stButton>button {
+        background: linear-gradient(135deg, #0090b0, #00e5ff) !important;
+        color: #04121a !important;
+        border: none !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        border-radius: 8px !important;
+        box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+        transition: all 0.2s ease-in-out;
+    }
+    .stButton>button:hover {
+        box-shadow: 0 0 22px rgba(0, 229, 255, 0.6);
+        transform: translateY(-1px);
+    }
+    .stButton>button:active { transform: translateY(0px); }
+
+    button[kind="primary"] {
+        background: linear-gradient(135deg, #7b2ff7, #00e5ff) !important;
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.45) !important;
+    }
+    button[kind="primary"]:hover {
+        box-shadow: 0 0 30px rgba(168, 85, 247, 0.75) !important;
+    }
+
+    .box-carrinho {
+        background: var(--bg-panel);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 3px solid var(--neon-cyan);
+        box-shadow: 0 0 12px rgba(0, 229, 255, 0.08);
+        margin-bottom: 10px;
+    }
+    .box-desconto {
+        background: linear-gradient(135deg, #161d2e, #14101f);
+        padding: 18px;
+        border-radius: 10px;
+        border: 1px solid rgba(168, 85, 247, 0.35);
+        box-shadow: 0 0 14px rgba(168, 85, 247, 0.12);
+        margin-bottom: 10px;
+    }
+
+    [data-testid="stMetric"] {
+        background: var(--bg-panel-2);
+        border: 1px solid var(--border-glow);
+        border-radius: 10px;
+        padding: 12px 10px;
+    }
+    [data-testid="stMetricLabel"] { color: #8fb8d9 !important; }
+    [data-testid="stMetricValue"] {
+        color: var(--neon-cyan) !important;
+        text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+    }
+
+    .stTabs [data-baseweb="tab-list"] { gap: 6px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #10182b;
+        border-radius: 8px 8px 0 0;
+        color: #9fd8ff;
+        font-family: 'Orbitron', sans-serif;
+        font-size: 13px;
+        padding: 10px 16px;
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #0090b0, #00e5ff) !important;
+        color: #04121a !important;
+        font-weight: 700;
+    }
+
     [data-testid="stExpander"] {
-        border: 1px solid #444;
-        border-radius: 8px;
-        background-color: #222222;
+        background: var(--bg-panel);
+        border: 1px solid #263049;
+        border-radius: 10px;
+    }
+
+    hr { border-color: rgba(0, 229, 255, 0.15) !important; }
+
+    .trasus-hero {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px;
+        border-radius: 14px;
+        margin-bottom: 18px;
+        background: linear-gradient(120deg, #0d1524, #131c30 60%, #10101c);
+        border: 1px solid rgba(0, 229, 255, 0.3);
+        box-shadow: 0 0 24px rgba(0, 229, 255, 0.12);
+    }
+    .trasus-hero img { max-height: 52px; border-radius: 6px; }
+    .trasus-hero-text h1 {
+        margin: 0;
+        font-size: 26px !important;
+        background: linear-gradient(90deg, #00e5ff, #a855f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: none !important;
+    }
+    .trasus-hero-text p {
+        margin: 2px 0 0 0;
+        color: #7fa8c9;
+        font-size: 12.5px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+
+    @media (max-width: 640px) {
+        h1 { font-size: 20px !important; }
+        h2 { font-size: 17px !important; }
+        .trasus-hero { padding: 12px 14px; }
+        .trasus-hero-text h1 { font-size: 20px !important; }
+        .box-carrinho, .box-desconto { padding: 12px; }
+        [data-testid="stMetricValue"] { font-size: 18px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================
+# CABEÇALHO PRINCIPAL (visível mesmo com sidebar fechada no mobile)
+# ==========================
+_logo_path = 'logo_trasus.png'
+if os.path.exists(_logo_path):
+    with open(_logo_path, "rb") as _f:
+        _logo_b64 = base64.b64encode(_f.read()).decode('utf-8')
+    _logo_html = f'<img src="data:image/png;base64,{_logo_b64}">'
+else:
+    _logo_html = '<div style="font-size:34px;">👕</div>'
+
+st.markdown(f"""
+<div class="trasus-hero">
+    {_logo_html}
+    <div class="trasus-hero-text">
+        <h1>TRASUS</h1>
+        <p>Sistema de Gestão de Orçamentos</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ==========================
 # NAVEGAÇÃO EM ABAS
 # ==========================
-aba_criar, aba_buscar = st.tabs(["📝 Criar / Editar Orçamento", "🔍 Buscar Histórico"])
+aba_criar, aba_buscar, aba_os = st.tabs(["📝 Criar / Editar Orçamento", "🔍 Buscar Histórico", "🛠️ Ordem de Serviço"])
 
 with aba_criar:
     col_titulo, col_btn_novo = st.columns([3, 1])
@@ -170,7 +304,6 @@ with aba_criar:
             st.title("👕 Novo Orçamento Trasus")
     
     with col_btn_novo:
-        st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
         st.button("🔄 Novo Pedido (Limpar)", on_click=novo_pedido, use_container_width=True)
 
     st.markdown("---")
@@ -182,15 +315,12 @@ with aba_criar:
         if os.path.exists('logo_trasus.png'):
             st.image('logo_trasus.png', use_container_width=True)
         else:
-            st.markdown("<h2 style='text-align: center; color: white;'>TRASUS</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; background: linear-gradient(90deg, #00e5ff, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>TRASUS</h2>", unsafe_allow_html=True)
 
-        st.markdown("---")
-        
-        # Coloquei dentro de um container com visual agradável
-        st.markdown("### 👤 Dados do Cliente")
+        st.header("👤 Dados do Cliente")
         c_nome = st.text_input("Nome / Contato", value=st.session_state.cliente_atual["nome"])
         c_empresa = st.text_input("Empresa", value=st.session_state.cliente_atual["empresa"])
-        c_telefone = st.text_input("WhatsApp (apenas números)", value=st.session_state.cliente_atual["telefone"])
+        c_telefone = st.text_input("WhatsApp (números)", value=st.session_state.cliente_atual["telefone"])
         c_email = st.text_input("E-mail", value=st.session_state.cliente_atual["email"])
         
         st.session_state.cliente_atual = {"nome": c_nome, "empresa": c_empresa, "telefone": c_telefone, "email": c_email}
@@ -198,7 +328,7 @@ with aba_criar:
     # ==========================
     # ÁREA 1: ADICIONAR ITEM
     # ==========================
-    st.subheader("1️⃣ Configurar Novo Item")
+    st.header("1. Configurar Novo Item")
     col1, col2 = st.columns(2)
     with col1:
         modelo_selecionado = st.selectbox("Produto", list(TABELA_MODELOS.keys()))
@@ -206,7 +336,6 @@ with aba_criar:
     with col2:
         personalizacao_selecionada = st.multiselect("Personalizações", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
 
-    st.markdown("**Grade de Tamanhos:**")
     col_p, col_m, col_g, col_gg, col_xg = st.columns(5)
     with col_p: qtd_p = st.number_input("P", min_value=0, step=1, value=0)
     with col_m: qtd_m = st.number_input("M", min_value=0, step=1, value=0)
@@ -216,10 +345,9 @@ with aba_criar:
 
     qtd_item_total = qtd_p + qtd_m + qtd_g + qtd_gg + qtd_xg
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("➕ Adicionar Item ao Pedido"):
+    if st.button("➕ Adicionar Item"):
         if qtd_item_total == 0:
-            st.warning("⚠️ Adicione quantidades na grade antes de prosseguir.")
+            st.warning("Adicione quantidades na grade.")
         else:
             preco_unit = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
             st.session_state.carrinho.append({
@@ -237,7 +365,7 @@ with aba_criar:
     # ==========================
     # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
     # ==========================
-    st.subheader(f"2️⃣ Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
+    st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
     subtotal_pedido = 0.0
 
     if len(st.session_state.carrinho) == 0:
@@ -246,27 +374,32 @@ with aba_criar:
         for i, item in enumerate(st.session_state.carrinho):
             subtotal_pedido += item["total"]
             
-            col_info, col_btn = st.columns([4, 1])
+            # Divide o espaço entre os dados do produto e o botão de exclusão
+            col_info, col_btn = st.columns([5, 1])
             
             with col_info:
                 st.markdown(f"""
-                <div class="box-carrinho">
-                    <strong style="font-size: 1.1em; color: #ffffff;">Item {i+1}: {item['descricao']}</strong><br>
-                    <span style="color: #cccccc;">Qtd: {item['quantidade']} | V. Unitário: R$ {item['unitario']:.2f}</span> | <strong>Subtotal: R$ {item['total']:.2f}</strong><br>
-                    <span style="font-size: 0.9em; color: #999999;">Grade: {item['grade']}</span>
+                <div class="box-carrinho" style="margin-bottom: 0;">
+                    <strong>Item {i+1}: {item['descricao']}</strong><br>
+                    Qtd: {item['quantidade']} | V. Unitário: R$ {item['unitario']:.2f} | <strong>Subtotal: R$ {item['total']:.2f}</strong><br>
+                    Grade: {item['grade']}
                 </div>
                 """, unsafe_allow_html=True)
                 
             with col_btn:
-                st.markdown("<div style='margin-top: 35px;'></div>", unsafe_allow_html=True)
-                st.button("🗑️", key=f"btn_remover_{i}", help="Remover item", on_click=remover_item, args=(i,), use_container_width=True)
+                # Cria um pequeno espaço acima do botão para alinhá-lo verticalmente com a caixa
+                st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
+                st.button("🗑️ Remover", key=f"btn_remover_{i}", on_click=remover_item, args=(i,), use_container_width=True)
+            
+            # Adiciona um espaço extra entre as linhas caso haja múltiplos produtos
+            st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("---")
 
     # ==========================
     # ÁREA 2.1: DESCONTO E AJUSTE MANUAL DE VALOR
     # ==========================
-    st.subheader("⚙️ Desconto e Ajuste de Valor")
+    st.header("2.1 Desconto e Ajuste de Valor")
     st.markdown('<div class="box-desconto">', unsafe_allow_html=True)
 
     col_desc1, col_desc2 = st.columns(2)
@@ -287,7 +420,7 @@ with aba_criar:
             st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
             st.caption("Nenhum desconto aplicado.")
 
-    # Calcula valor do desconto
+    # Calcula valor do desconto e valor com desconto aplicado
     if desconto_tipo == "Desconto (%)":
         valor_desconto_calculado = subtotal_pedido * (desconto_valor / 100)
     elif desconto_tipo == "Desconto (R$)":
@@ -299,7 +432,7 @@ with aba_criar:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    ajustar_manual = st.checkbox("✏️ Ajustar valor final manualmente", value=st.session_state.valor_manual_ativado, help="Sobrepõe os descontos acima.")
+    ajustar_manual = st.checkbox("✏️ Ajustar valor final manualmente (sobrepõe o desconto acima)", value=st.session_state.valor_manual_ativado)
 
     valor_manual_input = st.session_state.valor_manual
     if ajustar_manual:
@@ -309,7 +442,7 @@ with aba_criar:
     else:
         valor_final_pedido = valor_com_desconto
 
-    # Persiste na sessão
+    # Persiste escolhas na sessão
     st.session_state.desconto_tipo = desconto_tipo
     st.session_state.desconto_valor = desconto_valor
     st.session_state.valor_manual_ativado = ajustar_manual
@@ -331,11 +464,10 @@ with aba_criar:
     # ==========================
     # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
     # ==========================
-    st.subheader("3️⃣ Anexos e Finalização")
-    imagens_upload = st.file_uploader("📸 Anexe imagens do projeto (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    st.header("3. Anexos e Finalização")
+    imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀 Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
+    if st.button("Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
         if len(st.session_state.carrinho) == 0:
             st.error("⚠️ O pedido está vazio. Adicione itens antes de gerar o orçamento.")
         else:
@@ -421,7 +553,7 @@ with aba_criar:
             pdf.cell(45, 7, f"R$ {subtotal_pedido:.2f}", align="C")
             pdf.ln()
 
-            # Linha de Desconto
+            # Linha de Desconto (se houver e não estiver no modo manual)
             if not ajustar_manual and valor_desconto_calculado > 0:
                 if desconto_tipo == "Desconto (%)":
                     label_desconto = f"Desconto ({desconto_valor:.0f}%):"
@@ -439,6 +571,8 @@ with aba_criar:
             pdf_bytes = pdf.output(dest='S').encode('latin1')
             
             st.success("✅ Orçamento processado e salvo!")
+            
+            # Chama o Pop-up
             exibir_popup_pdf(pdf_bytes, numero_orcamento)
 
 # ==========================
@@ -465,7 +599,7 @@ with aba_buscar:
                     col_edit, col_del = st.columns(2)
 
                     with col_edit:
-                        if st.button("✏️ Editar", key=f"edit_{num}", use_container_width=True):
+                        if st.button("✏️ Editar este orçamento", key=f"edit_{num}", use_container_width=True):
                             st.session_state.cliente_atual = dados['cliente']
                             st.session_state.carrinho = dados['carrinho']
                             st.session_state.orcamento_editando = num
@@ -473,25 +607,327 @@ with aba_buscar:
                             st.session_state.desconto_valor = dados.get('desconto_valor', 0.0)
                             st.session_state.valor_manual_ativado = dados.get('valor_manual_ativado', False)
                             st.session_state.valor_manual = dados.get('valor_manual', 0.0)
-                            st.success("✅ Orçamento carregado! Volte para a aba 'Criar / Editar'.")
+                            st.success("Orçamento carregado! Volte para a aba 'Criar / Editar' no topo da tela para alterar os dados.")
 
                     with col_del:
                         if st.session_state.confirmar_exclusao == num:
-                            st.warning("⚠️ Deseja excluir? Essa ação não pode ser desfeita.")
+                            st.warning("Tem certeza que deseja excluir este orçamento? Essa ação não pode ser desfeita.")
                             col_sim, col_nao = st.columns(2)
                             with col_sim:
-                                if st.button("✅ Sim", key=f"confirma_del_{num}", use_container_width=True):
+                                if st.button("✅ Confirmar Exclusão", key=f"confirma_del_{num}", use_container_width=True):
                                     del banco[num]
                                     salvar_banco(banco)
                                     st.session_state.confirmar_exclusao = None
                                     if st.session_state.orcamento_editando == num:
                                         novo_pedido()
+                                    st.success(f"Orçamento {num} excluído com sucesso!")
                                     st.rerun()
                             with col_nao:
-                                if st.button("❌ Não", key=f"cancela_del_{num}", use_container_width=True):
+                                if st.button("❌ Cancelar", key=f"cancela_del_{num}", use_container_width=True):
                                     st.session_state.confirmar_exclusao = None
                                     st.rerun()
                         else:
-                            if st.button("🗑️ Excluir", key=f"del_{num}", use_container_width=True):
+                            if st.button("🗑️ Excluir Orçamento", key=f"del_{num}", use_container_width=True):
                                 st.session_state.confirmar_exclusao = num
                                 st.rerun()
+
+# ==========================
+# ABA 3: ORDEM DE SERVIÇO
+# ==========================
+with aba_os:
+    col_os_titulo, col_os_btn = st.columns([3, 1])
+    with col_os_titulo:
+        if st.session_state.os_editando:
+            st.title(f"✏️ Editando OS: {st.session_state.os_editando}")
+        else:
+            st.title("🛠️ Nova Ordem de Serviço")
+    with col_os_btn:
+        st.button("🔄 Nova OS (Limpar)", on_click=nova_os, use_container_width=True, key="btn_nova_os")
+
+    st.markdown("---")
+
+    # --------------------------
+    # 1. VÍNCULO
+    # --------------------------
+    st.header("1. Vínculo do Pedido")
+    tipo_os = st.radio(
+        "Origem da OS",
+        ["Vincular a Orçamento Existente", "OS Avulsa (sem orçamento)"],
+        horizontal=True,
+        key="tipo_os_radio"
+    )
+
+    cliente_os = {"nome": "", "empresa": "", "telefone": "", "email": ""}
+    itens_os = []
+    valor_total_os = 0.0
+    orcamento_vinculado = None
+    descricao_avulsa = ""
+
+    if tipo_os == "Vincular a Orçamento Existente":
+        if len(banco) == 0:
+            st.warning("Nenhum orçamento salvo ainda. Crie um orçamento primeiro ou use a opção 'OS Avulsa'.")
+        else:
+            opcoes_orc = list(reversed(list(banco.keys())))
+            orcamento_vinculado = st.selectbox(
+                "Selecione o Orçamento",
+                opcoes_orc,
+                format_func=lambda n: f"{n} - {banco[n]['cliente']['nome']} ({banco[n]['cliente']['empresa']}) - R$ {banco[n]['total']:.2f}"
+            )
+            dados_orc = banco[orcamento_vinculado]
+            cliente_os = dados_orc["cliente"]
+            itens_os = dados_orc["carrinho"]
+            valor_total_os = float(dados_orc["total"])
+
+            st.markdown(f"""
+            <div class="box-carrinho">
+                <strong>Cliente:</strong> {cliente_os['nome']} | <strong>Empresa:</strong> {cliente_os['empresa']}<br>
+                <strong>Itens:</strong> {len(itens_os)} | <strong>Valor Total:</strong> R$ {valor_total_os:.2f}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        col_a1, col_a2 = st.columns(2)
+        with col_a1:
+            os_nome = st.text_input("Nome / Contato do Cliente", key="os_avulsa_nome")
+            os_telefone = st.text_input("WhatsApp (números)", key="os_avulsa_telefone")
+        with col_a2:
+            os_empresa = st.text_input("Empresa", key="os_avulsa_empresa")
+            os_email = st.text_input("E-mail", key="os_avulsa_email")
+
+        cliente_os = {"nome": os_nome, "empresa": os_empresa, "telefone": os_telefone, "email": os_email}
+        descricao_avulsa = st.text_area("Descrição do Pedido (peças, tamanhos, tecidos, personalização)", key="os_avulsa_descricao", height=100)
+        valor_total_os = st.number_input("Valor Total do Pedido (R$)", min_value=0.0, step=1.0, key="os_avulsa_valor_total")
+
+    st.markdown("---")
+
+    # --------------------------
+    # 2. PAGAMENTO
+    # --------------------------
+    st.header("2. Pagamento")
+    col_pag1, col_pag2 = st.columns(2)
+    with col_pag1:
+        valor_entrada_os = st.number_input("Valor de Entrada / Sinal (R$)", min_value=0.0, max_value=max(valor_total_os, 0.0) if valor_total_os > 0 else None, step=1.0, key="os_valor_entrada")
+    with col_pag2:
+        valor_restante_os = max(valor_total_os - valor_entrada_os, 0.0)
+        st.number_input("Valor Restante (R$)", value=float(valor_restante_os), disabled=True, key="os_valor_restante_display")
+
+    if valor_total_os <= 0:
+        status_pagamento_os = "Pendente"
+    elif valor_entrada_os <= 0:
+        status_pagamento_os = "Pendente"
+    elif valor_restante_os <= 0:
+        status_pagamento_os = "Pago"
+    else:
+        status_pagamento_os = "Parcial"
+
+    cor_status_pag = {"Pendente": "🔴", "Parcial": "🟡", "Pago": "🟢"}
+    st.caption(f"Status do pagamento: {cor_status_pag[status_pagamento_os]} **{status_pagamento_os}**")
+
+    st.markdown("---")
+
+    # --------------------------
+    # 3. PRODUÇÃO E ENTREGA
+    # --------------------------
+    st.header("3. Produção e Entrega")
+    col_prod1, col_prod2 = st.columns(2)
+    with col_prod1:
+        prazo_entrega_os = st.date_input("Prazo de Entrega", key="os_prazo_entrega")
+    with col_prod2:
+        status_producao_os = st.selectbox("Status de Produção", ["Em Produção", "Pronto para Entrega", "Entregue"], key="os_status_producao")
+
+    observacoes_producao_os = st.text_area("Observações de Produção (acabamento, urgência, detalhes)", key="os_observacoes")
+
+    st.markdown("---")
+
+    # --------------------------
+    # 4. FOTOS DA CAMISA
+    # --------------------------
+    st.header("4. Fotos da Camisa")
+    fotos_os_upload = st.file_uploader("Anexe fotos (mockup, arte final, referência do cliente)", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="os_fotos_upload")
+
+    st.markdown("---")
+
+    # --------------------------
+    # SALVAR OS
+    # --------------------------
+    if st.button("💾 Salvar Ordem de Serviço", type="primary", use_container_width=True, key="btn_salvar_os"):
+        if valor_total_os <= 0:
+            st.error("⚠️ Informe um valor total válido para o pedido.")
+        elif tipo_os == "OS Avulsa (sem orçamento)" and not cliente_os["nome"]:
+            st.error("⚠️ Informe ao menos o nome do cliente.")
+        else:
+            if st.session_state.os_editando:
+                numero_os = st.session_state.os_editando
+            elif orcamento_vinculado:
+                numero_os = f"OS-{orcamento_vinculado}"
+            else:
+                numero_os = f"OS-AV-{datetime.now().strftime('%y%m%d-%H%M%S')}"
+
+            # Salva fotos novas em disco (mantém fotos já existentes se estiver editando)
+            fotos_paths = banco_os.get(numero_os, {}).get("fotos", []) if numero_os in banco_os else []
+            if fotos_os_upload:
+                for idx, foto in enumerate(fotos_os_upload):
+                    ext = foto.name.split(".")[-1]
+                    caminho_foto = os.path.join(FOTOS_OS_DIR, f"{numero_os}_{len(fotos_paths)+idx}.{ext}")
+                    with open(caminho_foto, "wb") as f_foto:
+                        f_foto.write(foto.getbuffer())
+                    fotos_paths.append(caminho_foto)
+
+            banco_os[numero_os] = {
+                "orcamento_vinculado": orcamento_vinculado,
+                "cliente": cliente_os,
+                "itens": itens_os,
+                "descricao_avulsa": descricao_avulsa,
+                "valor_total": valor_total_os,
+                "valor_entrada": valor_entrada_os,
+                "valor_restante": valor_restante_os,
+                "status_pagamento": status_pagamento_os,
+                "prazo_entrega": prazo_entrega_os.strftime("%d/%m/%Y"),
+                "status_producao": status_producao_os,
+                "observacoes": observacoes_producao_os,
+                "fotos": fotos_paths,
+                "data_criacao": banco_os.get(numero_os, {}).get("data_criacao", datetime.now().strftime("%d/%m/%Y %H:%M")),
+                "data_atualizacao": datetime.now().strftime("%d/%m/%Y %H:%M")
+            }
+            salvar_banco_os(banco_os)
+            st.session_state.os_editando = numero_os
+
+            # Gera PDF simples da OS
+            pdf_os = FPDF()
+            pdf_os.add_page()
+            pdf_os.set_font("Arial", 'B', 14)
+            pdf_os.cell(0, 12, f"ORDEM DE SERVIÇO - {numero_os}", ln=True, align="C")
+            pdf_os.ln(4)
+            pdf_os.set_font("Arial", '', 10)
+            pdf_os.cell(0, 6, f"Cliente: {cliente_os['nome']} | Empresa: {cliente_os['empresa']}", ln=True)
+            pdf_os.cell(0, 6, f"WhatsApp: {cliente_os['telefone']} | E-mail: {cliente_os['email']}", ln=True)
+            pdf_os.ln(4)
+
+            if itens_os:
+                pdf_os.set_font("Arial", 'B', 9)
+                pdf_os.cell(90, 8, " Descricao", border=1)
+                pdf_os.cell(30, 8, " Qtd", border=1, align="C")
+                pdf_os.cell(70, 8, " Grade", border=1, align="C")
+                pdf_os.ln()
+                for item in itens_os:
+                    pdf_os.set_font("Arial", '', 9)
+                    pdf_os.cell(90, 6, f" {item['descricao'][:40]}", border=1)
+                    pdf_os.cell(30, 6, f" {item['quantidade']}", border=1, align="C")
+                    pdf_os.cell(70, 6, f" {item['grade']}", border=1, align="C")
+                    pdf_os.ln()
+            elif descricao_avulsa:
+                pdf_os.set_font("Arial", '', 10)
+                pdf_os.multi_cell(0, 6, f"Descrição do pedido: {descricao_avulsa}")
+
+            pdf_os.ln(4)
+            pdf_os.set_font("Arial", '', 10)
+            pdf_os.cell(0, 6, f"Valor Total: R$ {valor_total_os:.2f}", ln=True)
+            pdf_os.cell(0, 6, f"Valor de Entrada: R$ {valor_entrada_os:.2f}", ln=True)
+            pdf_os.cell(0, 6, f"Valor Restante: R$ {valor_restante_os:.2f}", ln=True)
+            pdf_os.cell(0, 6, f"Status de Pagamento: {status_pagamento_os}", ln=True)
+            pdf_os.ln(2)
+            pdf_os.cell(0, 6, f"Prazo de Entrega: {prazo_entrega_os.strftime('%d/%m/%Y')}", ln=True)
+            pdf_os.cell(0, 6, f"Status de Produção: {status_producao_os}", ln=True)
+            if observacoes_producao_os:
+                pdf_os.ln(2)
+                pdf_os.multi_cell(0, 6, f"Observações: {observacoes_producao_os}")
+
+            if fotos_paths:
+                pdf_os.ln(4)
+                x_pos = 20
+                y_atual = pdf_os.get_y()
+                for foto_path in fotos_paths[:2]:
+                    try:
+                        img = Image.open(foto_path).convert('RGB')
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+                            img.save(tmp_file.name, format="JPEG")
+                            pdf_os.image(tmp_file.name, x=x_pos, y=y_atual, w=70)
+                        x_pos += 80
+                    except Exception:
+                        pass
+
+            pdf_os_bytes = pdf_os.output(dest='S').encode('latin1')
+            st.success(f"✅ Ordem de Serviço {numero_os} salva com sucesso!")
+            exibir_popup_pdf(pdf_os_bytes, numero_os)
+
+    st.markdown("---")
+
+    # --------------------------
+    # HISTÓRICO DE OS
+    # --------------------------
+    st.header("📋 Histórico de Ordens de Serviço")
+    termo_busca_os = st.text_input("Buscar por Cliente, Empresa ou Número da OS:", key="busca_os")
+
+    if len(banco_os) == 0:
+        st.info("Nenhuma Ordem de Serviço registrada ainda.")
+    else:
+        hoje = datetime.now().date()
+        for num_os, dados_os in reversed(list(banco_os.items())):
+            texto_busca_os = f"{num_os} {dados_os['cliente']['nome']} {dados_os['cliente']['empresa']}".lower()
+            if termo_busca_os.lower() not in texto_busca_os:
+                continue
+
+            # Calcula alerta de prazo
+            try:
+                data_prazo = datetime.strptime(dados_os["prazo_entrega"], "%d/%m/%Y").date()
+                dias_restantes = (data_prazo - hoje).days
+            except Exception:
+                dias_restantes = None
+
+            if dados_os["status_producao"] == "Entregue":
+                badge_prazo = "🟢"
+            elif dias_restantes is not None and dias_restantes < 0:
+                badge_prazo = "🔴 Atrasado"
+            elif dias_restantes is not None and dias_restantes <= 2:
+                badge_prazo = "🟡 Vence em breve"
+            else:
+                badge_prazo = "🔵"
+
+            badge_pag = cor_status_pag.get(dados_os["status_pagamento"], "⚪")
+
+            with st.expander(f"{badge_prazo} {num_os} - {dados_os['cliente']['nome']} ({dados_os['cliente']['empresa']}) | {badge_pag} {dados_os['status_pagamento']} | 📦 {dados_os['status_producao']}"):
+                st.write(f"**Valor Total:** R$ {dados_os['valor_total']:.2f} | **Entrada:** R$ {dados_os['valor_entrada']:.2f} | **Restante:** R$ {dados_os['valor_restante']:.2f}")
+                st.write(f"**Prazo de Entrega:** {dados_os['prazo_entrega']}")
+                if dados_os.get("orcamento_vinculado"):
+                    st.write(f"**Orçamento vinculado:** {dados_os['orcamento_vinculado']}")
+                elif dados_os.get("descricao_avulsa"):
+                    st.write(f"**Descrição:** {dados_os['descricao_avulsa']}")
+                if dados_os.get("observacoes"):
+                    st.write(f"**Observações:** {dados_os['observacoes']}")
+
+                if dados_os.get("fotos"):
+                    cols_fotos = st.columns(min(len(dados_os["fotos"]), 4))
+                    for i, foto_path in enumerate(dados_os["fotos"][:4]):
+                        if os.path.exists(foto_path):
+                            with cols_fotos[i % len(cols_fotos)]:
+                                st.image(foto_path, use_container_width=True)
+
+                col_edit_os, col_del_os = st.columns(2)
+                with col_edit_os:
+                    if st.button("✏️ Editar esta OS", key=f"edit_os_{num_os}", use_container_width=True):
+                        st.session_state.os_editando = num_os
+                        st.success("OS carregada para edição. Ajuste os campos acima e clique em 'Salvar Ordem de Serviço'.")
+
+                with col_del_os:
+                    if st.session_state.confirmar_exclusao_os == num_os:
+                        st.warning("Confirma a exclusão desta OS? Essa ação não pode ser desfeita.")
+                        col_sim_os, col_nao_os = st.columns(2)
+                        with col_sim_os:
+                            if st.button("✅ Confirmar", key=f"confirma_del_os_{num_os}", use_container_width=True):
+                                for foto_path in dados_os.get("fotos", []):
+                                    if os.path.exists(foto_path):
+                                        os.remove(foto_path)
+                                del banco_os[num_os]
+                                salvar_banco_os(banco_os)
+                                st.session_state.confirmar_exclusao_os = None
+                                if st.session_state.os_editando == num_os:
+                                    nova_os()
+                                st.success(f"OS {num_os} excluída com sucesso!")
+                                st.rerun()
+                        with col_nao_os:
+                            if st.button("❌ Cancelar", key=f"cancela_del_os_{num_os}", use_container_width=True):
+                                st.session_state.confirmar_exclusao_os = None
+                                st.rerun()
+                    else:
+                        if st.button("🗑️ Excluir OS", key=f"del_os_{num_os}", use_container_width=True):
+                            st.session_state.confirmar_exclusao_os = num_os
+                            st.rerun()
