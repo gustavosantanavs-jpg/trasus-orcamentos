@@ -78,6 +78,25 @@ def excluir_foto_os(caminho_blob):
     except Exception:
         pass
 
+def salvar_precos(modelos, tecidos, personalizacao):
+    db.collection("configuracoes").document("precos").set({
+        "modelos": modelos,
+        "tecidos": tecidos,
+        "personalizacao": personalizacao
+    })
+
+def carregar_precos():
+    doc = db.collection("configuracoes").document("precos").get()
+    if doc.exists:
+        dados = doc.to_dict()
+        return dados.get("modelos", {}), dados.get("tecidos", {}), dados.get("personalizacao", {})
+    else:
+        modelos_padrao = {"Camiseta Básica": 35.00, "Camisa Polo": 55.00, "Camisa Social": 85.00, "Regata": 28.00, "Shorts": 25.00, "Calça Esportiva": 45.00, "Baby Look Feminina": 35.00}
+        tecidos_padrao = {"Algodão 100%": 0.00, "Malha Fria (PV)": 2.50, "Dry-Fit": 5.00, "Piquet (Polo)": 8.00, "Cacharel": 3.00, "Helanca": 4.50}
+        personalizacao_padrao = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 4.50, "Bordado Peito": 8.00, "Bordado Costas": 15.00, "Sublimação Total": 12.00}
+        salvar_precos(modelos_padrao, tecidos_padrao, personalizacao_padrao)
+        return modelos_padrao, tecidos_padrao, personalizacao_padrao
+
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
 def exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=None, nome_cliente=""):
     b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
@@ -203,11 +222,9 @@ banco = carregar_banco()
 banco_os = carregar_banco_os()
 
 # ==========================
-# TABELAS DE PREÇOS
+# TABELAS DE PREÇOS (editáveis via aba Configurações, salvas no Firestore)
 # ==========================
-TABELA_MODELOS = {"Camiseta Básica": 35.00, "Camisa Polo": 55.00, "Camisa Social": 85.00, "Regata": 28.00, "Shorts": 25.00, "Calça Esportiva": 45.00, "Baby Look Feminina": 35.00}
-TABELA_TECIDOS = {"Algodão 100%": 0.00, "Malha Fria (PV)": 2.50, "Dry-Fit": 5.00, "Piquet (Polo)": 8.00, "Cacharel": 3.00, "Helanca": 4.50}
-TABELA_PERSONALIZACAO = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 4.50, "Bordado Peito": 8.00, "Bordado Costas": 15.00, "Sublimação Total": 12.00}
+TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO = carregar_precos()
 
 # ==========================
 # ESTILOS VISUAIS (CSS) - TEMA TECNOLÓGICO
@@ -405,7 +422,7 @@ st.markdown(f"""
 # ==========================
 # NAVEGAÇÃO EM ABAS
 # ==========================
-aba_criar, aba_buscar, aba_os = st.tabs(["📝 Criar / Editar Orçamento", "🔍 Buscar Histórico", "🛠️ Ordem de Serviço"])
+aba_criar, aba_buscar, aba_os, aba_config = st.tabs(["📝 Criar / Editar Orçamento", "🔍 Buscar Histórico", "🛠️ Ordem de Serviço", "⚙️ Configurações"])
 
 with aba_criar:
     col_titulo, col_btn_novo = st.columns([3, 1])
@@ -420,9 +437,6 @@ with aba_criar:
 
     st.markdown("---")
 
-    # ==========================
-    # BARRA LATERAL: Dados do Cliente
-    # ==========================
     with st.sidebar:
         if os.path.exists('logo_trasus.png'):
             st.image('logo_trasus.png', use_container_width=True)
@@ -437,9 +451,6 @@ with aba_criar:
         
         st.session_state.cliente_atual = {"nome": c_nome, "empresa": c_empresa, "telefone": c_telefone, "email": c_email}
 
-    # ==========================
-    # ÁREA 1: ADICIONAR ITEM
-    # ==========================
     st.header("1. Configurar Novo Item")
     col1, col2 = st.columns(2)
     with col1:
@@ -474,9 +485,6 @@ with aba_criar:
 
     st.markdown("---")
 
-    # ==========================
-    # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
-    # ==========================
     st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
     subtotal_pedido = 0.0
 
@@ -505,9 +513,6 @@ with aba_criar:
     
     st.markdown("---")
 
-    # ==========================
-    # ÁREA 2.1: DESCONTO E AJUSTE MANUAL DE VALOR
-    # ==========================
     st.header("2.1 Desconto e Ajuste de Valor")
     st.markdown('<div class="box-desconto">', unsafe_allow_html=True)
 
@@ -568,9 +573,6 @@ with aba_criar:
 
     st.markdown("---")
     
-    # ==========================
-    # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
-    # ==========================
     st.header("3. Anexos e Finalização")
     imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
@@ -601,9 +603,6 @@ with aba_criar:
             }
             salvar_banco(banco)
 
-            # ==========================
-            # CONSTRUÇÃO DO PDF
-            # ==========================
             pdf = FPDF()
             pdf.add_page()
             
@@ -679,9 +678,6 @@ with aba_criar:
             
             exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=c_telefone, nome_cliente=c_nome)
 
-# ==========================
-# ABA 2: BUSCAR, EDITAR E EXCLUIR HISTÓRICO
-# ==========================
 with aba_buscar:
     st.title("🔍 Histórico de Orçamentos")
     termo_busca = st.text_input("Buscar por Nome do Cliente, Empresa ou Número do Orçamento:")
@@ -735,9 +731,6 @@ with aba_buscar:
                                 st.session_state.confirmar_exclusao = num
                                 st.rerun()
 
-# ==========================
-# ABA 3: ORDEM DE SERVIÇO
-# ==========================
 with aba_os:
     col_os_titulo, col_os_btn = st.columns([3, 1])
     with col_os_titulo:
@@ -750,9 +743,6 @@ with aba_os:
 
     st.markdown("---")
 
-    # --------------------------
-    # 1. VÍNCULO
-    # --------------------------
     st.header("1. Vínculo do Pedido")
     tipo_os = st.radio(
         "Origem da OS",
@@ -803,9 +793,6 @@ with aba_os:
 
     st.markdown("---")
 
-    # --------------------------
-    # 2. PAGAMENTO
-    # --------------------------
     st.header("2. Pagamento")
     col_pag1, col_pag2 = st.columns(2)
     with col_pag1:
@@ -828,9 +815,6 @@ with aba_os:
 
     st.markdown("---")
 
-    # --------------------------
-    # 3. PRODUÇÃO E ENTREGA
-    # --------------------------
     st.header("3. Produção e Entrega")
     col_prod1, col_prod2 = st.columns(2)
     with col_prod1:
@@ -842,17 +826,11 @@ with aba_os:
 
     st.markdown("---")
 
-    # --------------------------
-    # 4. FOTOS DA CAMISA
-    # --------------------------
     st.header("4. Fotos da Camisa")
     fotos_os_upload = st.file_uploader("Anexe fotos (mockup, arte final, referência do cliente)", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="os_fotos_upload")
 
     st.markdown("---")
 
-    # --------------------------
-    # SALVAR OS
-    # --------------------------
     if st.button("💾 Salvar Ordem de Serviço", type="primary", use_container_width=True, key="btn_salvar_os"):
         if valor_total_os <= 0:
             st.error("⚠️ Informe um valor total válido para o pedido.")
@@ -961,9 +939,6 @@ with aba_os:
 
     st.markdown("---")
 
-    # --------------------------
-    # HISTÓRICO DE OS
-    # --------------------------
     st.header("📋 Histórico de Ordens de Serviço")
     termo_busca_os = st.text_input("Buscar por Cliente, Empresa ou Número da OS:", key="busca_os")
 
@@ -1041,3 +1016,84 @@ with aba_os:
                         if st.button("🗑️ Excluir OS", key=f"del_os_{num_os}", use_container_width=True):
                             st.session_state.confirmar_exclusao_os = num_os
                             st.rerun()
+
+with aba_config:
+    st.title("⚙️ Configurações de Preços")
+    st.caption("Edite os valores usados no cálculo dos orçamentos. As alterações ficam salvas permanentemente e valem para novos orçamentos.")
+
+    def bloco_categoria(titulo, tabela_atual, chave_categoria, icone):
+        st.markdown("---")
+        st.header(f"{icone} {titulo}")
+
+        if len(tabela_atual) == 0:
+            st.info("Nenhum item cadastrado ainda.")
+
+        novos_valores = {}
+        itens_para_remover = []
+
+        for nome, preco in tabela_atual.items():
+            col_nome, col_preco, col_del = st.columns([3, 2, 1])
+            with col_nome:
+                st.markdown(f"<div style='padding-top:8px;'>{nome}</div>", unsafe_allow_html=True)
+            with col_preco:
+                novo_valor = st.number_input(
+                    "Preço (R$)", min_value=0.0, step=0.5, value=float(preco),
+                    key=f"preco_{chave_categoria}_{nome}", label_visibility="collapsed"
+                )
+                novos_valores[nome] = novo_valor
+            with col_del:
+                if st.button("🗑️", key=f"del_{chave_categoria}_{nome}", use_container_width=True):
+                    itens_para_remover.append(nome)
+
+        if itens_para_remover:
+            for nome in itens_para_remover:
+                tabela_atual.pop(nome, None)
+            _modelos, _tecidos, _pers = carregar_precos()
+            if chave_categoria == "modelo":
+                salvar_precos(tabela_atual, _tecidos, _pers)
+            elif chave_categoria == "tecido":
+                salvar_precos(_modelos, tabela_atual, _pers)
+            else:
+                salvar_precos(_modelos, _tecidos, tabela_atual)
+            st.success("Item removido!")
+            st.rerun()
+
+        if len(tabela_atual) > 0 and st.button(f"💾 Salvar Alterações em {titulo}", key=f"salvar_{chave_categoria}", use_container_width=True):
+            _modelos, _tecidos, _pers = carregar_precos()
+            if chave_categoria == "modelo":
+                salvar_precos(novos_valores, _tecidos, _pers)
+            elif chave_categoria == "tecido":
+                salvar_precos(_modelos, novos_valores, _pers)
+            else:
+                salvar_precos(_modelos, _tecidos, novos_valores)
+            st.success(f"Preços de {titulo} atualizados!")
+            st.rerun()
+
+        with st.expander(f"➕ Adicionar novo item em {titulo}"):
+            col_novo_nome, col_novo_preco = st.columns([3, 2])
+            with col_novo_nome:
+                novo_nome = st.text_input("Nome do item", key=f"novo_nome_{chave_categoria}")
+            with col_novo_preco:
+                novo_preco_item = st.number_input("Preço (R$)", min_value=0.0, step=0.5, key=f"novo_preco_{chave_categoria}")
+            if st.button(f"Adicionar a {titulo}", key=f"btn_add_{chave_categoria}", use_container_width=True):
+                if not novo_nome.strip():
+                    st.error("Informe um nome para o novo item.")
+                elif novo_nome in tabela_atual:
+                    st.error("Já existe um item com esse nome.")
+                else:
+                    _modelos, _tecidos, _pers = carregar_precos()
+                    if chave_categoria == "modelo":
+                        _modelos[novo_nome] = novo_preco_item
+                        salvar_precos(_modelos, _tecidos, _pers)
+                    elif chave_categoria == "tecido":
+                        _tecidos[novo_nome] = novo_preco_item
+                        salvar_precos(_modelos, _tecidos, _pers)
+                    else:
+                        _pers[novo_nome] = novo_preco_item
+                        salvar_precos(_modelos, _tecidos, _pers)
+                    st.success(f"'{novo_nome}' adicionado!")
+                    st.rerun()
+
+    bloco_categoria("Produtos (Modelos)", dict(TABELA_MODELOS), "modelo", "👕")
+    bloco_categoria("Tecidos", dict(TABELA_TECIDOS), "tecido", "🧵")
+    bloco_categoria("Personalizações", dict(TABELA_PERSONALIZACAO), "personalizacao", "✨")
