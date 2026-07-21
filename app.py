@@ -4,41 +4,79 @@ import tempfile
 import json
 import base64
 import urllib.parse
+import urllib.request
+import io
 from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
+import firebase_admin
+from firebase_admin import credentials, firestore, storage
 
 # Configuração inicial
 st.set_page_config(page_title="Trasus - Gestão de Orçamentos", layout="wide", initial_sidebar_state="expanded")
 
-ARQUIVO_BD = "banco_orcamentos.json"
+# ==========================
+# CONEXÃO COM O FIREBASE (Firestore + Storage)
+# ==========================
+@st.cache_resource
+def iniciar_firebase():
+    if not firebase_admin._apps:
+        cred_dict = dict(st.secrets["firebase"])
+        storage_bucket = cred_dict.pop("storage_bucket")
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred, {'storageBucket': storage_bucket})
+    return firestore.client(), storage.bucket()
+
+db, bucket = iniciar_firebase()
+
+COLECAO_ORCAMENTOS = "orcamentos"
+COLECAO_OS = "ordens_servico"
 
 # ==========================
-# FUNÇÕES DE BANCO DE DADOS (JSON) E POP-UP
+# FUNÇÕES DE BANCO DE DADOS (FIRESTORE) E POP-UP
 # ==========================
 def carregar_banco():
-    if os.path.exists(ARQUIVO_BD):
-        with open(ARQUIVO_BD, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    docs = db.collection(COLECAO_ORCAMENTOS).stream()
+    return {doc.id: doc.to_dict() for doc in docs}
 
 def salvar_banco(dados):
-    with open(ARQUIVO_BD, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=4)
-
-ARQUIVO_BD_OS = "banco_os.json"
-FOTOS_OS_DIR = "fotos_os"
-os.makedirs(FOTOS_OS_DIR, exist_ok=True)
+    colecao = db.collection(COLECAO_ORCAMENTOS)
+    existentes = {doc.id for doc in colecao.stream()}
+    for numero, conteudo in dados.items():
+        colecao.document(numero).set(conteudo)
+    for numero in existentes - set(dados.keys()):
+        colecao.document(numero).delete()
 
 def carregar_banco_os():
-    if os.path.exists(ARQUIVO_BD_OS):
-        with open(ARQUIVO_BD_OS, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    docs = db.collection(COLECAO_OS).stream()
+    return {doc.id: doc.to_dict() for doc in docs}
 
 def salvar_banco_os(dados):
-    with open(ARQUIVO_BD_OS, "w", encoding="utf-8") as f:
-        json.dump(dados, f, ensure_ascii=False, indent=4)
+    colecao = db.collection(COLECAO_OS)
+    existentes = {doc.id for doc in colecao.stream()}
+    for numero, conteudo in dados.items():
+        colecao.document(numero).set(conteudo)
+    for numero in existentes - set(dados.keys()):
+        colecao.document(numero).delete()
+
+def upload_foto_os(numero_os, indice, arquivo):
+    """Envia uma foto para o Firebase Storage e retorna o caminho (blob path) salvo."""
+    ext = arquivo.name.split(".")[-1]
+    caminho_blob = f"fotos_os/{numero_os}_{indice}.{ext}"
+    blob = bucket.blob(caminho_blob)
+    blob.upload_from_string(arquivo.getbuffer().tobytes(), content_type=arquivo.type)
+    blob.make_public()
+    return caminho_blob
+
+def url_foto_os(caminho_blob):
+    """Retorna a URL pública de uma foto a partir do seu caminho no Storage."""
+    return bucket.blob(caminho_blob).public_url
+
+def excluir_foto_os(caminho_blob):
+    try:
+        bucket.blob(caminho_blob).delete()
+    except Exception:
+        pass
 
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
 def exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=None, nome_cliente=""):
@@ -836,15 +874,12 @@ with aba_os:
             else:
                 numero_os = f"OS-AV-{datetime.now().strftime('%y%m%d-%H%M%S')}"
 
-            # Salva fotos novas em disco (mantém fotos já existentes se estiver editando)
+            # Salva fotos novas no Firebase Storage (mantém fotos já existentes se estiver editando)
             fotos_paths = banco_os.get(numero_os, {}).get("fotos", []) if numero_os in banco_os else []
             if fotos_os_upload:
                 for idx, foto in enumerate(fotos_os_upload):
-                    ext = foto.name.split(".")[-1]
-                    caminho_foto = os.path.join(FOTOS_OS_DIR, f"{numero_os}_{len(fotos_paths)+idx}.{ext}")
-                    with open(caminho_foto, "wb") as f_foto:
-                        f_foto.write(foto.getbuffer())
-                    fotos_paths.append(caminho_foto)
+                    caminho_blob = upload_foto_os(numero_os, len(fotos_paths) + idx, foto)
+                    fotos_paths.append(caminho_blob)
 
             banco_os[numero_os] = {
                 "orcamento_vinculado": orcamento_vinculado,
@@ -909,9 +944,12 @@ with aba_os:
                 pdf_os.ln(4)
                 x_pos = 20
                 y_atual = pdf_os.get_y()
-                for foto_path in fotos_paths[:2]:
+                for caminho_blob in fotos_paths[:2]:
                     try:
-                        img = Image.open(foto_path).convert('RGB')
+                        url_foto = url_foto_os(caminho_blob)
+                        with urllib.request.urlopen(url_foto) as resp:
+                            img_bytes = resp.read()
+                        img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
                         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
                             img.save(tmp_file.name, format="JPEG")
                             pdf_os.image(tmp_file.name, x=x_pos, y=y_atual, w=70)
@@ -970,10 +1008,12 @@ with aba_os:
 
                 if dados_os.get("fotos"):
                     cols_fotos = st.columns(min(len(dados_os["fotos"]), 4))
-                    for i, foto_path in enumerate(dados_os["fotos"][:4]):
-                        if os.path.exists(foto_path):
+                    for i, caminho_blob in enumerate(dados_os["fotos"][:4]):
+                        try:
                             with cols_fotos[i % len(cols_fotos)]:
-                                st.image(foto_path, use_container_width=True)
+                                st.image(url_foto_os(caminho_blob), use_container_width=True)
+                        except Exception:
+                            pass
 
                 col_edit_os, col_del_os = st.columns(2)
                 with col_edit_os:
@@ -987,9 +1027,8 @@ with aba_os:
                         col_sim_os, col_nao_os = st.columns(2)
                         with col_sim_os:
                             if st.button("✅ Confirmar", key=f"confirma_del_os_{num_os}", use_container_width=True):
-                                for foto_path in dados_os.get("fotos", []):
-                                    if os.path.exists(foto_path):
-                                        os.remove(foto_path)
+                                for caminho_blob in dados_os.get("fotos", []):
+                                    excluir_foto_os(caminho_blob)
                                 del banco_os[num_os]
                                 salvar_banco_os(banco_os)
                                 st.session_state.confirmar_exclusao_os = None
