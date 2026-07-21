@@ -486,7 +486,6 @@ with aba_criar:
         for i, item in enumerate(st.session_state.carrinho):
             subtotal_pedido += item["total"]
             
-            # Divide o espaço entre os dados do produto e o botão de exclusão
             col_info, col_btn = st.columns([5, 1])
             
             with col_info:
@@ -499,11 +498,9 @@ with aba_criar:
                 """, unsafe_allow_html=True)
                 
             with col_btn:
-                # Cria um pequeno espaço acima do botão para alinhá-lo verticalmente com a caixa
                 st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
                 st.button("🗑️ Remover", key=f"btn_remover_{i}", on_click=remover_item, args=(i,), use_container_width=True)
             
-            # Adiciona um espaço extra entre as linhas caso haja múltiplos produtos
             st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("---")
@@ -532,7 +529,6 @@ with aba_criar:
             st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
             st.caption("Nenhum desconto aplicado.")
 
-    # Calcula valor do desconto e valor com desconto aplicado
     if desconto_tipo == "Desconto (%)":
         valor_desconto_calculado = subtotal_pedido * (desconto_valor / 100)
     elif desconto_tipo == "Desconto (R$)":
@@ -554,7 +550,6 @@ with aba_criar:
     else:
         valor_final_pedido = valor_com_desconto
 
-    # Persiste escolhas na sessão
     st.session_state.desconto_tipo = desconto_tipo
     st.session_state.desconto_valor = desconto_valor
     st.session_state.valor_manual_ativado = ajustar_manual
@@ -659,13 +654,11 @@ with aba_criar:
 
             pdf.ln(3)
 
-            # Linha de Subtotal
             pdf.set_font("Arial", '', 10)
             pdf.cell(145, 7, "Subtotal:", align="R")
             pdf.cell(45, 7, f"R$ {subtotal_pedido:.2f}", align="C")
             pdf.ln()
 
-            # Linha de Desconto (se houver e não estiver no modo manual)
             if not ajustar_manual and valor_desconto_calculado > 0:
                 if desconto_tipo == "Desconto (%)":
                     label_desconto = f"Desconto ({desconto_valor:.0f}%):"
@@ -684,7 +677,6 @@ with aba_criar:
             
             st.success("✅ Orçamento processado e salvo!")
             
-            # Chama o Pop-up
             exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=c_telefone, nome_cliente=c_nome)
 
 # ==========================
@@ -874,7 +866,6 @@ with aba_os:
             else:
                 numero_os = f"OS-AV-{datetime.now().strftime('%y%m%d-%H%M%S')}"
 
-            # Salva fotos novas no Firebase Storage (mantém fotos já existentes se estiver editando)
             fotos_paths = banco_os.get(numero_os, {}).get("fotos", []) if numero_os in banco_os else []
             if fotos_os_upload:
                 for idx, foto in enumerate(fotos_os_upload):
@@ -900,12 +891,19 @@ with aba_os:
             salvar_banco_os(banco_os)
             st.session_state.os_editando = numero_os
 
-            # Gera PDF simples da OS
             pdf_os = FPDF()
             pdf_os.add_page()
-            pdf_os.set_font("Arial", 'B', 14)
-            pdf_os.cell(0, 12, f"ORDEM DE SERVIÇO - {numero_os}", ln=True, align="C")
-            pdf_os.ln(4)
+
+            if os.path.exists("background.jpg"):
+                pdf_os.image("background.jpg", x=0, y=0, w=210, h=297)
+
+            pdf_os.set_y(30)
+            pdf_os.set_font("Arial", 'B', 10)
+            pdf_os.cell(0, 10, f"Ordem de Serviço: {numero_os}", ln=True, align="R")
+
+            pdf_os.set_y(85)
+            pdf_os.set_font("Arial", 'B', 12)
+            pdf_os.cell(0, 10, "ORDEM DE SERVIÇO", ln=True, align="C")
             pdf_os.set_font("Arial", '', 10)
             pdf_os.cell(0, 6, f"Cliente: {cliente_os['nome']} | Empresa: {cliente_os['empresa']}", ln=True)
             pdf_os.cell(0, 6, f"WhatsApp: {cliente_os['telefone']} | E-mail: {cliente_os['email']}", ln=True)
@@ -978,7 +976,6 @@ with aba_os:
             if termo_busca_os.lower() not in texto_busca_os:
                 continue
 
-            # Calcula alerta de prazo
             try:
                 data_prazo = datetime.strptime(dados_os["prazo_entrega"], "%d/%m/%Y").date()
                 dias_restantes = (data_prazo - hoje).days
