@@ -47,66 +47,65 @@ def exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=None, nome_cl
     st.markdown(pdf_display, unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    col_dl, col_wa = st.columns(2)
-    with col_dl:
-        st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
+    st.download_button(label="📥 Baixar Arquivo PDF", data=pdf_bytes, file_name=f"{numero_orcamento}.pdf", mime="application/pdf", use_container_width=True)
 
-    with col_wa:
-        share_component = f"""
-        <div style="width:100%;">
-            <button id="btn_share_wa_{numero_orcamento}" style="
-                width:100%; padding:0.6rem 1rem; border:none; border-radius:8px;
-                background: linear-gradient(135deg, #25D366, #128C7E); color:#ffffff;
-                font-weight:700; letter-spacing:0.5px; text-transform:uppercase;
-                cursor:pointer; box-shadow:0 0 14px rgba(37,211,102,0.35); font-family:sans-serif;">
-                📲 Enviar para WhatsApp
-            </button>
-            <div id="share_status_{numero_orcamento}" style="font-size:12px; color:#9fd8ff; margin-top:6px; font-family:sans-serif;"></div>
-        </div>
-        <script>
-        (function() {{
-            const b64Data = "{b64_pdf}";
-            const fileName = "{numero_orcamento}.pdf";
-            const statusEl = document.getElementById("share_status_{numero_orcamento}");
+    st.markdown("<div style='margin-top:8px;'></div>", unsafe_allow_html=True)
 
-            function b64toBlob(b64, contentType) {{
-                const byteChars = atob(b64);
-                const byteArrays = [];
-                for (let offset = 0; offset < byteChars.length; offset += 512) {{
-                    const slice = byteChars.slice(offset, offset + 512);
-                    const byteNumbers = new Array(slice.length);
-                    for (let i = 0; i < slice.length; i++) {{
-                        byteNumbers[i] = slice.charCodeAt(i);
-                    }}
-                    byteArrays.push(new Uint8Array(byteNumbers));
+    share_component = f"""
+    <div style="width:100%;">
+        <button id="btn_share_wa_{numero_orcamento}" style="
+            width:100%; padding:0.7rem 1rem; border:none; border-radius:8px;
+            background: linear-gradient(135deg, #25D366, #128C7E); color:#ffffff;
+            font-weight:700; font-size:14px; letter-spacing:0.3px;
+            cursor:pointer; box-shadow:0 0 14px rgba(37,211,102,0.35); font-family:sans-serif;">
+            &#128241; Enviar para WhatsApp
+        </button>
+        <div id="share_status_{numero_orcamento}" style="font-size:12px; color:#9fd8ff; margin-top:6px; font-family:sans-serif;"></div>
+    </div>
+    <script>
+    (function() {{
+        const b64Data = "{b64_pdf}";
+        const fileName = "{numero_orcamento}.pdf";
+        const statusEl = document.getElementById("share_status_{numero_orcamento}");
+
+        function b64toBlob(b64, contentType) {{
+            const byteChars = atob(b64);
+            const byteArrays = [];
+            for (let offset = 0; offset < byteChars.length; offset += 512) {{
+                const slice = byteChars.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {{
+                    byteNumbers[i] = slice.charCodeAt(i);
                 }}
-                return new Blob(byteArrays, {{type: contentType}});
+                byteArrays.push(new Uint8Array(byteNumbers));
             }}
+            return new Blob(byteArrays, {{type: contentType}});
+        }}
 
-            document.getElementById("btn_share_wa_{numero_orcamento}").addEventListener("click", async function() {{
-                try {{
-                    const blob = b64toBlob(b64Data, "application/pdf");
-                    const file = new File([blob], fileName, {{type: "application/pdf"}});
+        document.getElementById("btn_share_wa_{numero_orcamento}").addEventListener("click", async function() {{
+            try {{
+                const blob = b64toBlob(b64Data, "application/pdf");
+                const file = new File([blob], fileName, {{type: "application/pdf"}});
 
-                    if (navigator.canShare && navigator.canShare({{files: [file]}})) {{
-                        await navigator.share({{
-                            files: [file],
-                            title: "Orçamento {numero_orcamento}",
-                            text: "Segue o orçamento {numero_orcamento}"
-                        }});
-                    }} else {{
-                        statusEl.innerText = "Este navegador não suporta envio direto de arquivo. Baixe o PDF e anexe manualmente no WhatsApp.";
-                    }}
-                }} catch (err) {{
-                    if (err.name !== "AbortError") {{
-                        statusEl.innerText = "Não foi possível abrir o compartilhamento. Baixe o PDF e anexe manualmente.";
-                    }}
+                if (navigator.canShare && navigator.canShare({{files: [file]}})) {{
+                    await navigator.share({{
+                        files: [file],
+                        title: "Orçamento {numero_orcamento}",
+                        text: "Segue o orçamento {numero_orcamento}"
+                    }});
+                }} else {{
+                    statusEl.innerText = "Este navegador não suporta envio direto de arquivo. Use o botão 'Baixar Arquivo PDF' acima e anexe manualmente no WhatsApp.";
                 }}
-            }});
-        }})();
-        </script>
-        """
-        st.components.v1.html(share_component, height=70)
+            }} catch (err) {{
+                if (err.name !== "AbortError") {{
+                    statusEl.innerText = "Não foi possível abrir o compartilhamento. Use o botão 'Baixar Arquivo PDF' acima.";
+                }}
+            }}
+        }});
+    }})();
+    </script>
+    """
+    st.components.v1.html(share_component, height=80)
 
     if telefone_cliente:
         telefone_limpo = ''.join(filter(str.isdigit, telefone_cliente))
