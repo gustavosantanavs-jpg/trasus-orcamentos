@@ -485,15 +485,31 @@ with aba_criar:
 
     qtd_item_total = qtd_p + qtd_m + qtd_g + qtd_gg + qtd_xg
 
+    preco_calculado_preview = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + TABELA_GOLAS.get(gola_selecionada, 0.0) + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
+
+    col_ajuste1, col_ajuste2 = st.columns([2, 2])
+    with col_ajuste1:
+        ajustar_preco_item = st.checkbox("✏️ Ajustar preço unitário manualmente para este item", key="ajustar_preco_item_manual")
+    with col_ajuste2:
+        if ajustar_preco_item:
+            preco_unit_manual_item = st.number_input(
+                "Preço unitário manual (R$)", min_value=0.0, step=0.5,
+                value=float(preco_calculado_preview), key="preco_unit_manual_item"
+            )
+        else:
+            st.caption(f"Preço unitário calculado: R$ {preco_calculado_preview:.2f}")
+
     if st.button("➕ Adicionar Item"):
         if qtd_item_total == 0:
             st.warning("Adicione quantidades na grade.")
         else:
-            preco_unit = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + TABELA_GOLAS.get(gola_selecionada, 0.0) + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
+            preco_unit = preco_unit_manual_item if ajustar_preco_item else preco_calculado_preview
             preco_unit_gg_xg = preco_unit * (1 + PERCENTUAL_GG_XG / 100)
             qtd_normal = qtd_p + qtd_m + qtd_g
             qtd_gg_xg = qtd_gg + qtd_xg
             descricao_base = f"{modelo_selecionado} ({tecido_selecionado}, {gola_selecionada})" if gola_selecionada else f"{modelo_selecionado} ({tecido_selecionado})"
+            if ajustar_preco_item:
+                descricao_base += " [preço ajustado]"
 
             if qtd_normal > 0:
                 st.session_state.carrinho.append({
