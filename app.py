@@ -78,19 +78,42 @@ def excluir_foto_os(caminho_blob):
     except Exception:
         pass
 
-def salvar_precos(modelos, tecidos, personalizacao, percentual_gg_xg=None, golas=None):
+TAMANHOS_PADRAO = [
+    {"nome": "PP", "adicional": False},
+    {"nome": "P", "adicional": False},
+    {"nome": "M", "adicional": False},
+    {"nome": "G", "adicional": False},
+    {"nome": "GG", "adicional": True},
+    {"nome": "XG", "adicional": True},
+    {"nome": "EG", "adicional": False},
+    {"nome": "EGG", "adicional": False},
+    {"nome": "EXG", "adicional": False},
+    {"nome": "2", "adicional": False},
+    {"nome": "4", "adicional": False},
+    {"nome": "6", "adicional": False},
+    {"nome": "8", "adicional": False},
+    {"nome": "10", "adicional": False},
+    {"nome": "12", "adicional": False},
+    {"nome": "14", "adicional": False},
+    {"nome": "16", "adicional": False},
+]
+
+def salvar_precos(modelos, tecidos, personalizacao, percentual_gg_xg=None, golas=None, tamanhos=None):
     doc_atual = db.collection("configuracoes").document("precos").get()
     dados_atuais = doc_atual.to_dict() if doc_atual.exists else {}
     if percentual_gg_xg is None:
         percentual_gg_xg = dados_atuais.get("percentual_gg_xg", 25.0)
     if golas is None:
         golas = dados_atuais.get("golas", {"Gola Careca": 0.00, "Gola V": 1.50, "Gola Polo": 3.00})
+    if tamanhos is None:
+        tamanhos = dados_atuais.get("tamanhos", TAMANHOS_PADRAO)
     db.collection("configuracoes").document("precos").set({
         "modelos": modelos,
         "tecidos": tecidos,
         "personalizacao": personalizacao,
         "percentual_gg_xg": percentual_gg_xg,
-        "golas": golas
+        "golas": golas,
+        "tamanhos": tamanhos
     })
 
 def carregar_precos():
@@ -102,7 +125,8 @@ def carregar_precos():
             dados.get("tecidos", {}),
             dados.get("personalizacao", {}),
             dados.get("percentual_gg_xg", 25.0),
-            dados.get("golas", {"Gola Careca": 0.00, "Gola V": 1.50, "Gola Polo": 3.00})
+            dados.get("golas", {"Gola Careca": 0.00, "Gola V": 1.50, "Gola Polo": 3.00}),
+            dados.get("tamanhos", TAMANHOS_PADRAO)
         )
     else:
         modelos_padrao = {"Camiseta Básica": 35.00, "Camisa Polo": 55.00, "Camisa Social": 85.00, "Regata": 28.00, "Shorts": 25.00, "Calça Esportiva": 45.00, "Baby Look Feminina": 35.00}
@@ -110,8 +134,8 @@ def carregar_precos():
         personalizacao_padrao = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 4.50, "Bordado Peito": 8.00, "Bordado Costas": 15.00, "Sublimação Total": 12.00}
         percentual_padrao = 25.0
         golas_padrao = {"Gola Careca": 0.00, "Gola V": 1.50, "Gola Polo": 3.00}
-        salvar_precos(modelos_padrao, tecidos_padrao, personalizacao_padrao, percentual_padrao, golas_padrao)
-        return modelos_padrao, tecidos_padrao, personalizacao_padrao, percentual_padrao, golas_padrao
+        salvar_precos(modelos_padrao, tecidos_padrao, personalizacao_padrao, percentual_padrao, golas_padrao, TAMANHOS_PADRAO)
+        return modelos_padrao, tecidos_padrao, personalizacao_padrao, percentual_padrao, golas_padrao, TAMANHOS_PADRAO
 
 @st.dialog("📄 Pré-visualização do Orçamento", width="large")
 def exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=None, nome_cliente=""):
@@ -240,7 +264,7 @@ banco_os = carregar_banco_os()
 # ==========================
 # TABELAS DE PREÇOS (editáveis via aba Configurações, salvas no Firestore)
 # ==========================
-TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_GOLAS = carregar_precos()
+TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_GOLAS, LISTA_TAMANHOS = carregar_precos()
 
 # ==========================
 # ESTILOS VISUAIS (CSS) - TEMA TECNOLÓGICO
@@ -453,6 +477,9 @@ with aba_criar:
 
     st.markdown("---")
 
+    # ==========================
+    # BARRA LATERAL: Dados do Cliente
+    # ==========================
     with st.sidebar:
         if os.path.exists('logo_trasus.png'):
             st.image('logo_trasus.png', use_container_width=True)
@@ -467,6 +494,9 @@ with aba_criar:
         
         st.session_state.cliente_atual = {"nome": c_nome, "empresa": c_empresa, "telefone": c_telefone, "email": c_email}
 
+    # ==========================
+    # ÁREA 1: ADICIONAR ITEM
+    # ==========================
     st.header("1. Configurar Novo Item")
     col1, col2 = st.columns(2)
     with col1:
@@ -476,14 +506,20 @@ with aba_criar:
     with col2:
         personalizacao_selecionada = st.multiselect("Personalizações", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
 
-    col_p, col_m, col_g, col_gg, col_xg = st.columns(5)
-    with col_p: qtd_p = st.number_input("P", min_value=0, step=1, value=0)
-    with col_m: qtd_m = st.number_input("M", min_value=0, step=1, value=0)
-    with col_g: qtd_g = st.number_input("G", min_value=0, step=1, value=0)
-    with col_gg: qtd_gg = st.number_input("GG", min_value=0, step=1, value=0)
-    with col_xg: qtd_xg = st.number_input("XG", min_value=0, step=1, value=0)
+    st.caption("Grade de Tamanhos")
+    qtds_tamanhos = {}
+    tamanhos_por_linha = 6
+    for i in range(0, len(LISTA_TAMANHOS), tamanhos_por_linha):
+        linha_tamanhos = LISTA_TAMANHOS[i:i + tamanhos_por_linha]
+        cols_tam = st.columns(len(linha_tamanhos))
+        for col_tam, tam in zip(cols_tam, linha_tamanhos):
+            with col_tam:
+                label = f"{tam['nome']} *" if tam.get("adicional") else tam['nome']
+                qtds_tamanhos[tam['nome']] = st.number_input(label, min_value=0, step=1, value=0, key=f"qtd_tam_{tam['nome']}")
+    if any(t.get("adicional") for t in LISTA_TAMANHOS):
+        st.caption(f"* Tamanhos com adicional de {PERCENTUAL_GG_XG:.0f}%")
 
-    qtd_item_total = qtd_p + qtd_m + qtd_g + qtd_gg + qtd_xg
+    qtd_item_total = sum(qtds_tamanhos.values())
 
     preco_calculado_preview = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + TABELA_GOLAS.get(gola_selecionada, 0.0) + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
 
@@ -504,9 +540,15 @@ with aba_criar:
             st.warning("Adicione quantidades na grade.")
         else:
             preco_unit = preco_unit_manual_item if ajustar_preco_item else preco_calculado_preview
-            preco_unit_gg_xg = preco_unit * (1 + PERCENTUAL_GG_XG / 100)
-            qtd_normal = qtd_p + qtd_m + qtd_g
-            qtd_gg_xg = qtd_gg + qtd_xg
+            preco_unit_adicional = preco_unit * (1 + PERCENTUAL_GG_XG / 100)
+
+            nomes_adicional = {t['nome'] for t in LISTA_TAMANHOS if t.get("adicional")}
+            qtd_normal = sum(q for tam, q in qtds_tamanhos.items() if tam not in nomes_adicional)
+            qtd_adicional = sum(q for tam, q in qtds_tamanhos.items() if tam in nomes_adicional)
+
+            grade_normal = " ".join(f"{tam}({q})" for tam, q in qtds_tamanhos.items() if tam not in nomes_adicional and q > 0)
+            grade_adicional = " ".join(f"{tam}({q})" for tam, q in qtds_tamanhos.items() if tam in nomes_adicional and q > 0)
+
             descricao_base = f"{modelo_selecionado} ({tecido_selecionado}, {gola_selecionada})" if gola_selecionada else f"{modelo_selecionado} ({tecido_selecionado})"
             if ajustar_preco_item:
                 descricao_base += " [preço ajustado]"
@@ -517,17 +559,17 @@ with aba_criar:
                     "quantidade": qtd_normal,
                     "unitario": preco_unit,
                     "total": preco_unit * qtd_normal,
-                    "grade": f"P({qtd_p}) M({qtd_m}) G({qtd_g})",
+                    "grade": grade_normal,
                     "personalizacao": ", ".join(personalizacao_selecionada)
                 })
 
-            if qtd_gg_xg > 0:
+            if qtd_adicional > 0:
                 st.session_state.carrinho.append({
-                    "descricao": f"{descricao_base} - GG/XG (+{PERCENTUAL_GG_XG:.0f}%)",
-                    "quantidade": qtd_gg_xg,
-                    "unitario": preco_unit_gg_xg,
-                    "total": preco_unit_gg_xg * qtd_gg_xg,
-                    "grade": f"GG({qtd_gg}) XG({qtd_xg})",
+                    "descricao": f"{descricao_base} - Adicional (+{PERCENTUAL_GG_XG:.0f}%)",
+                    "quantidade": qtd_adicional,
+                    "unitario": preco_unit_adicional,
+                    "total": preco_unit_adicional * qtd_adicional,
+                    "grade": grade_adicional,
                     "personalizacao": ", ".join(personalizacao_selecionada)
                 })
 
@@ -535,6 +577,9 @@ with aba_criar:
 
     st.markdown("---")
 
+    # ==========================
+    # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
+    # ==========================
     st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
     subtotal_pedido = 0.0
 
@@ -544,6 +589,7 @@ with aba_criar:
         for i, item in enumerate(st.session_state.carrinho):
             subtotal_pedido += item["total"]
             
+            # Divide o espaço entre os dados do produto e o botão de exclusão
             col_info, col_btn = st.columns([5, 1])
             
             with col_info:
@@ -556,13 +602,18 @@ with aba_criar:
                 """, unsafe_allow_html=True)
                 
             with col_btn:
+                # Cria um pequeno espaço acima do botão para alinhá-lo verticalmente com a caixa
                 st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
                 st.button("🗑️ Remover", key=f"btn_remover_{i}", on_click=remover_item, args=(i,), use_container_width=True)
             
+            # Adiciona um espaço extra entre as linhas caso haja múltiplos produtos
             st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("---")
 
+    # ==========================
+    # ÁREA 2.1: DESCONTO E AJUSTE MANUAL DE VALOR
+    # ==========================
     st.header("2.1 Desconto e Ajuste de Valor")
     st.markdown('<div class="box-desconto">', unsafe_allow_html=True)
 
@@ -584,6 +635,7 @@ with aba_criar:
             st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
             st.caption("Nenhum desconto aplicado.")
 
+    # Calcula valor do desconto e valor com desconto aplicado
     if desconto_tipo == "Desconto (%)":
         valor_desconto_calculado = subtotal_pedido * (desconto_valor / 100)
     elif desconto_tipo == "Desconto (R$)":
@@ -605,6 +657,7 @@ with aba_criar:
     else:
         valor_final_pedido = valor_com_desconto
 
+    # Persiste escolhas na sessão
     st.session_state.desconto_tipo = desconto_tipo
     st.session_state.desconto_valor = desconto_valor
     st.session_state.valor_manual_ativado = ajustar_manual
@@ -623,6 +676,9 @@ with aba_criar:
 
     st.markdown("---")
     
+    # ==========================
+    # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
+    # ==========================
     st.header("3. Anexos e Finalização")
     imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
@@ -653,6 +709,9 @@ with aba_criar:
             }
             salvar_banco(banco)
 
+            # ==========================
+            # CONSTRUÇÃO DO PDF
+            # ==========================
             pdf = FPDF()
             pdf.add_page()
             
@@ -703,11 +762,13 @@ with aba_criar:
 
             pdf.ln(3)
 
+            # Linha de Subtotal
             pdf.set_font("Arial", '', 10)
             pdf.cell(145, 7, "Subtotal:", align="R")
             pdf.cell(45, 7, f"R$ {subtotal_pedido:.2f}", align="C")
             pdf.ln()
 
+            # Linha de Desconto (se houver e não estiver no modo manual)
             if not ajustar_manual and valor_desconto_calculado > 0:
                 if desconto_tipo == "Desconto (%)":
                     label_desconto = f"Desconto ({desconto_valor:.0f}%):"
@@ -726,8 +787,12 @@ with aba_criar:
             
             st.success("✅ Orçamento processado e salvo!")
             
+            # Chama o Pop-up
             exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=c_telefone, nome_cliente=c_nome)
 
+# ==========================
+# ABA 2: BUSCAR, EDITAR E EXCLUIR HISTÓRICO
+# ==========================
 with aba_buscar:
     st.title("🔍 Histórico de Orçamentos")
     termo_busca = st.text_input("Buscar por Nome do Cliente, Empresa ou Número do Orçamento:")
@@ -781,6 +846,9 @@ with aba_buscar:
                                 st.session_state.confirmar_exclusao = num
                                 st.rerun()
 
+# ==========================
+# ABA 3: ORDEM DE SERVIÇO
+# ==========================
 with aba_os:
     col_os_titulo, col_os_btn = st.columns([3, 1])
     with col_os_titulo:
@@ -793,6 +861,9 @@ with aba_os:
 
     st.markdown("---")
 
+    # --------------------------
+    # 1. VÍNCULO
+    # --------------------------
     st.header("1. Vínculo do Pedido")
     tipo_os = st.radio(
         "Origem da OS",
@@ -843,6 +914,9 @@ with aba_os:
 
     st.markdown("---")
 
+    # --------------------------
+    # 2. PAGAMENTO
+    # --------------------------
     st.header("2. Pagamento")
     col_pag1, col_pag2 = st.columns(2)
     with col_pag1:
@@ -865,6 +939,9 @@ with aba_os:
 
     st.markdown("---")
 
+    # --------------------------
+    # 3. PRODUÇÃO E ENTREGA
+    # --------------------------
     st.header("3. Produção e Entrega")
     col_prod1, col_prod2 = st.columns(2)
     with col_prod1:
@@ -876,11 +953,17 @@ with aba_os:
 
     st.markdown("---")
 
+    # --------------------------
+    # 4. FOTOS DA CAMISA
+    # --------------------------
     st.header("4. Fotos da Camisa")
     fotos_os_upload = st.file_uploader("Anexe fotos (mockup, arte final, referência do cliente)", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="os_fotos_upload")
 
     st.markdown("---")
 
+    # --------------------------
+    # SALVAR OS
+    # --------------------------
     if st.button("💾 Salvar Ordem de Serviço", type="primary", use_container_width=True, key="btn_salvar_os"):
         if valor_total_os <= 0:
             st.error("⚠️ Informe um valor total válido para o pedido.")
@@ -894,6 +977,7 @@ with aba_os:
             else:
                 numero_os = f"OS-AV-{datetime.now().strftime('%y%m%d-%H%M%S')}"
 
+            # Salva fotos novas no Firebase Storage (mantém fotos já existentes se estiver editando)
             fotos_paths = banco_os.get(numero_os, {}).get("fotos", []) if numero_os in banco_os else []
             if fotos_os_upload:
                 for idx, foto in enumerate(fotos_os_upload):
@@ -919,6 +1003,7 @@ with aba_os:
             salvar_banco_os(banco_os)
             st.session_state.os_editando = numero_os
 
+            # Gera PDF simples da OS (mesmo padrão visual do orçamento)
             pdf_os = FPDF()
             pdf_os.add_page()
 
@@ -989,6 +1074,9 @@ with aba_os:
 
     st.markdown("---")
 
+    # --------------------------
+    # HISTÓRICO DE OS
+    # --------------------------
     st.header("📋 Histórico de Ordens de Serviço")
     termo_busca_os = st.text_input("Buscar por Cliente, Empresa ou Número da OS:", key="busca_os")
 
@@ -1001,6 +1089,7 @@ with aba_os:
             if termo_busca_os.lower() not in texto_busca_os:
                 continue
 
+            # Calcula alerta de prazo
             try:
                 data_prazo = datetime.strptime(dados_os["prazo_entrega"], "%d/%m/%Y").date()
                 dias_restantes = (data_prazo - hoje).days
@@ -1067,6 +1156,9 @@ with aba_os:
                             st.session_state.confirmar_exclusao_os = num_os
                             st.rerun()
 
+# ==========================
+# ABA 4: CONFIGURAÇÕES (PREÇOS EDITÁVEIS)
+# ==========================
 with aba_config:
     st.title("⚙️ Configurações de Preços")
     st.caption("Edite os valores usados no cálculo dos orçamentos. As alterações ficam salvas permanentemente e valem para novos orçamentos.")
@@ -1098,7 +1190,7 @@ with aba_config:
         if itens_para_remover:
             for nome in itens_para_remover:
                 tabela_atual.pop(nome, None)
-            _modelos, _tecidos, _pers, _perc, _golas = carregar_precos()
+            _modelos, _tecidos, _pers, _perc, _golas, _tam = carregar_precos()
             if chave_categoria == "modelo":
                 salvar_precos(tabela_atual, _tecidos, _pers, _perc, _golas)
             elif chave_categoria == "tecido":
@@ -1111,7 +1203,7 @@ with aba_config:
             st.rerun()
 
         if len(tabela_atual) > 0 and st.button(f"💾 Salvar Alterações em {titulo}", key=f"salvar_{chave_categoria}", use_container_width=True):
-            _modelos, _tecidos, _pers, _perc, _golas = carregar_precos()
+            _modelos, _tecidos, _pers, _perc, _golas, _tam = carregar_precos()
             if chave_categoria == "modelo":
                 salvar_precos(novos_valores, _tecidos, _pers, _perc, _golas)
             elif chave_categoria == "tecido":
@@ -1135,7 +1227,7 @@ with aba_config:
                 elif novo_nome in tabela_atual:
                     st.error("Já existe um item com esse nome.")
                 else:
-                    _modelos, _tecidos, _pers, _perc, _golas = carregar_precos()
+                    _modelos, _tecidos, _pers, _perc, _golas, _tam = carregar_precos()
                     if chave_categoria == "modelo":
                         _modelos[novo_nome] = novo_preco_item
                         salvar_precos(_modelos, _tecidos, _pers, _perc, _golas)
@@ -1157,15 +1249,67 @@ with aba_config:
     bloco_categoria("Golas", dict(TABELA_GOLAS), "gola", "👔")
 
     st.markdown("---")
-    st.header("📏 Adicional para Tamanhos GG/XG")
-    st.caption("Percentual aplicado automaticamente sobre o preço unitário para as quantidades em GG e XG.")
+    st.header("📏 Percentual Adicional")
+    st.caption("Percentual aplicado automaticamente sobre o preço unitário para os tamanhos marcados como 'com adicional' na Grade de Tamanhos abaixo.")
 
     novo_percentual = st.number_input(
         "Percentual adicional (%)", min_value=0.0, max_value=200.0, step=1.0,
         value=float(PERCENTUAL_GG_XG), key="input_percentual_gg_xg"
     )
-    if st.button("💾 Salvar Percentual GG/XG", key="btn_salvar_percentual", use_container_width=True):
-        _modelos, _tecidos, _pers, _perc_antigo, _golas = carregar_precos()
+    if st.button("💾 Salvar Percentual Adicional", key="btn_salvar_percentual", use_container_width=True):
+        _modelos, _tecidos, _pers, _perc_antigo, _golas, _tam = carregar_precos()
         salvar_precos(_modelos, _tecidos, _pers, novo_percentual, _golas)
-        st.success(f"Percentual GG/XG atualizado para {novo_percentual:.0f}%!")
+        st.success(f"Percentual adicional atualizado para {novo_percentual:.0f}%!")
         st.rerun()
+
+    st.markdown("---")
+    st.header("📐 Grade de Tamanhos")
+    st.caption("Adicione, remova ou marque quais tamanhos recebem o adicional de percentual configurado acima.")
+
+    tamanhos_para_remover = []
+    tamanhos_atualizados = []
+
+    for idx, tam in enumerate(LISTA_TAMANHOS):
+        col_nome_tam, col_check_tam, col_del_tam = st.columns([2, 2, 1])
+        with col_nome_tam:
+            st.markdown(f"<div style='padding-top:8px;'>{tam['nome']}</div>", unsafe_allow_html=True)
+        with col_check_tam:
+            tem_adicional = st.checkbox(
+                f"Tem adicional de {PERCENTUAL_GG_XG:.0f}%", value=tam.get("adicional", False),
+                key=f"tam_adicional_{idx}_{tam['nome']}"
+            )
+            tamanhos_atualizados.append({"nome": tam['nome'], "adicional": tem_adicional})
+        with col_del_tam:
+            if st.button("🗑️", key=f"del_tam_{idx}_{tam['nome']}", use_container_width=True):
+                tamanhos_para_remover.append(idx)
+
+    if tamanhos_para_remover:
+        nova_lista = [t for i, t in enumerate(LISTA_TAMANHOS) if i not in tamanhos_para_remover]
+        _modelos, _tecidos, _pers, _perc, _golas, _tam_antigo = carregar_precos()
+        salvar_precos(_modelos, _tecidos, _pers, _perc, _golas, nova_lista)
+        st.success("Tamanho removido!")
+        st.rerun()
+
+    if st.button("💾 Salvar Alterações na Grade de Tamanhos", key="btn_salvar_tamanhos", use_container_width=True):
+        _modelos, _tecidos, _pers, _perc, _golas, _tam_antigo = carregar_precos()
+        salvar_precos(_modelos, _tecidos, _pers, _perc, _golas, tamanhos_atualizados)
+        st.success("Grade de tamanhos atualizada!")
+        st.rerun()
+
+    with st.expander("➕ Adicionar novo tamanho"):
+        col_novo_tam_nome, col_novo_tam_adicional = st.columns([2, 2])
+        with col_novo_tam_nome:
+            novo_tam_nome = st.text_input("Nome do tamanho (ex: 3XG, 18)", key="novo_tam_nome")
+        with col_novo_tam_adicional:
+            novo_tam_adicional = st.checkbox(f"Tem adicional de {PERCENTUAL_GG_XG:.0f}%", key="novo_tam_adicional")
+        if st.button("Adicionar Tamanho", key="btn_add_tamanho", use_container_width=True):
+            if not novo_tam_nome.strip():
+                st.error("Informe um nome para o novo tamanho.")
+            elif any(t['nome'] == novo_tam_nome for t in LISTA_TAMANHOS):
+                st.error("Já existe um tamanho com esse nome.")
+            else:
+                _modelos, _tecidos, _pers, _perc, _golas, _tam_atual = carregar_precos()
+                _tam_atual.append({"nome": novo_tam_nome, "adicional": novo_tam_adicional})
+                salvar_precos(_modelos, _tecidos, _pers, _perc, _golas, _tam_atual)
+                st.success(f"Tamanho '{novo_tam_nome}' adicionado!")
+                st.rerun()
