@@ -267,171 +267,213 @@ banco_os = carregar_banco_os()
 TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_GOLAS, LISTA_TAMANHOS = carregar_precos()
 
 # ==========================
-# ESTILOS VISUAIS (CSS) - TEMA TECNOLÓGICO
+# ESTILOS VISUAIS (CSS) - TEMA PREMIUM PRETO E PRATA
 # ==========================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Montserrat:wght@500;600;700&display=swap');
 
     :root {
-        --neon-cyan: #00e5ff;
-        --neon-purple: #a855f7;
-        --bg-dark: #0a0e17;
-        --bg-panel: #121826;
-        --bg-panel-2: #161d2e;
-        --border-glow: rgba(0, 229, 255, 0.35);
+        --black: #070707;
+        --black-soft: #0d0d0e;
+        --graphite: #141415;
+        --graphite-raised: #1b1b1d;
+        --silver: #d7d8da;
+        --silver-bright: #f4f4f5;
+        --silver-muted: #96989c;
+        --border: rgba(215, 216, 218, 0.18);
+        --border-strong: rgba(215, 216, 218, 0.38);
+        --shadow: rgba(0, 0, 0, 0.48);
     }
 
-    header[data-testid="stHeader"] { background-color: var(--bg-dark) !important; }
+    header[data-testid="stHeader"] {
+        background: rgba(7, 7, 7, 0.94) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
 
     .stApp {
-        background: radial-gradient(circle at 15% 0%, #0f1b2e 0%, #0a0e17 45%, #05070c 100%);
-        color: #e6f1ff;
-        font-family: 'Rajdhani', sans-serif;
+        background:
+            radial-gradient(circle at 12% -8%, rgba(255, 255, 255, 0.07), transparent 29%),
+            radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.035), transparent 25%),
+            linear-gradient(145deg, #0b0b0c 0%, #070707 52%, #0d0d0e 100%);
+        color: var(--silver);
+        font-family: 'Manrope', sans-serif;
     }
 
     h1, h2, h3 {
-        font-family: 'Orbitron', sans-serif !important;
-        letter-spacing: 1px;
-        color: #eaf6ff !important;
-        text-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+        font-family: 'Montserrat', sans-serif !important;
+        color: var(--silver-bright) !important;
+        letter-spacing: 0.045em;
+        text-shadow: 0 2px 16px rgba(255, 255, 255, 0.05);
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0d1220 0%, #10182b 100%);
-        border-right: 1px solid var(--border-glow);
+        background: linear-gradient(180deg, #090909 0%, #101011 100%);
+        border-right: 1px solid var(--border);
         padding-top: 10px;
     }
 
     .stTextInput>div>div>input, .stSelectbox>div>div>select,
     .stNumberInput>div>div>input, textarea {
-        background-color: #0f1626 !important;
-        color: #e6f1ff !important;
-        border: 1px solid #263049 !important;
-        border-radius: 8px !important;
-        transition: all 0.2s ease-in-out;
+        background-color: var(--graphite) !important;
+        color: var(--silver-bright) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 6px !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
-        border: 1px solid var(--neon-cyan) !important;
-        box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important;
+        border-color: var(--border-strong) !important;
+        box-shadow: 0 0 0 2px rgba(215, 216, 218, 0.08) !important;
     }
     .stTextInput>label, .stSelectbox>label, .stNumberInput>label,
     .stFileUploader>label, .stMultiSelect>label {
-        color: #9fd8ff !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.3px;
+        color: #c6c7ca !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.02em;
     }
 
     .stButton>button {
-        background: linear-gradient(135deg, #0090b0, #00e5ff) !important;
-        color: #04121a !important;
-        border: none !important;
-        font-weight: 700 !important;
-        letter-spacing: 0.5px;
+        background: linear-gradient(145deg, #1d1d1f, #111112) !important;
+        color: var(--silver-bright) !important;
+        border: 1px solid var(--border-strong) !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.07em;
         text-transform: uppercase;
-        border-radius: 8px !important;
-        box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
-        transition: all 0.2s ease-in-out;
+        border-radius: 6px !important;
+        box-shadow: 0 8px 22px var(--shadow);
+        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
     }
     .stButton>button:hover {
-        box-shadow: 0 0 22px rgba(0, 229, 255, 0.6);
+        background: linear-gradient(145deg, #29292c, #171719) !important;
+        border-color: rgba(244, 244, 245, 0.72) !important;
         transform: translateY(-1px);
     }
     .stButton>button:active { transform: translateY(0px); }
 
     button[kind="primary"] {
-        background: linear-gradient(135deg, #7b2ff7, #00e5ff) !important;
-        box-shadow: 0 0 20px rgba(168, 85, 247, 0.45) !important;
+        background: linear-gradient(120deg, #f2f2f3 0%, #b9bbbe 48%, #ececed 100%) !important;
+        color: #090909 !important;
+        border: 1px solid #f5f5f5 !important;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.85) !important;
     }
     button[kind="primary"]:hover {
-        box-shadow: 0 0 30px rgba(168, 85, 247, 0.75) !important;
+        background: linear-gradient(120deg, #ffffff 0%, #d0d1d3 48%, #f7f7f7 100%) !important;
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.58), 0 0 18px rgba(255, 255, 255, 0.08) !important;
     }
 
     .box-carrinho {
-        background: var(--bg-panel);
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 3px solid var(--neon-cyan);
-        box-shadow: 0 0 12px rgba(0, 229, 255, 0.08);
-        margin-bottom: 10px;
+        background: linear-gradient(145deg, rgba(27, 27, 29, 0.96), rgba(14, 14, 15, 0.96));
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        border-left: 3px solid #c7c8ca;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+        margin-bottom: 12px;
     }
     .box-desconto {
-        background: linear-gradient(135deg, #161d2e, #14101f);
+        background: linear-gradient(145deg, #181819, #0f0f10);
         padding: 18px;
-        border-radius: 10px;
-        border: 1px solid rgba(168, 85, 247, 0.35);
-        box-shadow: 0 0 14px rgba(168, 85, 247, 0.12);
-        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+        margin-bottom: 12px;
     }
 
     [data-testid="stMetric"] {
-        background: var(--bg-panel-2);
-        border: 1px solid var(--border-glow);
-        border-radius: 10px;
-        padding: 12px 10px;
+        background: linear-gradient(145deg, var(--graphite-raised), var(--black-soft));
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 14px 12px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
     }
-    [data-testid="stMetricLabel"] { color: #8fb8d9 !important; }
+    [data-testid="stMetricLabel"] { color: var(--silver-muted) !important; }
     [data-testid="stMetricValue"] {
-        color: var(--neon-cyan) !important;
-        text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        color: var(--silver-bright) !important;
+        text-shadow: 0 2px 16px rgba(255, 255, 255, 0.08);
     }
 
-    .stTabs [data-baseweb="tab-list"] { gap: 6px; }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+        border-bottom: 1px solid var(--border);
+    }
     .stTabs [data-baseweb="tab"] {
-        background-color: #10182b;
-        border-radius: 8px 8px 0 0;
-        color: #9fd8ff;
-        font-family: 'Orbitron', sans-serif;
-        font-size: 13px;
-        padding: 10px 16px;
+        background: transparent;
+        border-radius: 0;
+        color: var(--silver-muted);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        padding: 11px 15px;
     }
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #0090b0, #00e5ff) !important;
-        color: #04121a !important;
-        font-weight: 700;
+        background: linear-gradient(180deg, transparent, rgba(215, 216, 218, 0.08)) !important;
+        color: var(--silver-bright) !important;
+        border-bottom: 2px solid var(--silver) !important;
+        font-weight: 600;
     }
 
     [data-testid="stExpander"] {
-        background: var(--bg-panel);
-        border: 1px solid #263049;
-        border-radius: 10px;
+        background: linear-gradient(145deg, rgba(24, 24, 25, 0.9), rgba(13, 13, 14, 0.9));
+        border: 1px solid var(--border);
+        border-radius: 8px;
     }
 
-    hr { border-color: rgba(0, 229, 255, 0.15) !important; }
+    hr { border-color: rgba(215, 216, 218, 0.12) !important; }
 
     .trasus-hero {
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 16px 20px;
-        border-radius: 14px;
-        margin-bottom: 18px;
-        background: linear-gradient(120deg, #0d1524, #131c30 60%, #10101c);
-        border: 1px solid rgba(0, 229, 255, 0.3);
-        box-shadow: 0 0 24px rgba(0, 229, 255, 0.12);
+        gap: 24px;
+        padding: 22px 26px;
+        border-radius: 10px;
+        margin-bottom: 22px;
+        background:
+            linear-gradient(110deg, rgba(255, 255, 255, 0.045), transparent 38%),
+            linear-gradient(145deg, #151516, #090909 72%);
+        border: 1px solid var(--border);
+        box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        overflow: hidden;
     }
-    .trasus-hero img { max-height: 52px; border-radius: 6px; }
+    .trasus-hero img {
+        width: 142px;
+        max-height: 86px;
+        object-fit: contain;
+        border-radius: 4px;
+        filter: contrast(1.06) brightness(1.08);
+    }
+    .trasus-hero-text { min-width: 0; }
     .trasus-hero-text h1 {
         margin: 0;
-        font-size: 26px !important;
-        background: linear-gradient(90deg, #00e5ff, #a855f7);
+        font-size: clamp(16px, 1.7vw, 22px) !important;
+        line-height: 1.35;
+        letter-spacing: 0.14em;
+        background: linear-gradient(100deg, #ffffff 0%, #a7a9ad 52%, #eeeeef 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         text-shadow: none !important;
     }
     .trasus-hero-text p {
-        margin: 2px 0 0 0;
-        color: #7fa8c9;
-        font-size: 12.5px;
-        letter-spacing: 1.5px;
+        margin: 7px 0 0 0;
+        color: var(--silver-muted);
+        font-size: 11px;
+        letter-spacing: 0.2em;
         text-transform: uppercase;
+    }
+
+    @media (max-width: 980px) {
+        .trasus-hero { gap: 18px; }
+        .trasus-hero img { width: 116px; max-height: 72px; }
+        .trasus-hero-text h1 { letter-spacing: 0.09em; }
+        .trasus-hero-text p { letter-spacing: 0.14em; }
     }
 
     @media (max-width: 640px) {
         h1 { font-size: 20px !important; }
         h2 { font-size: 17px !important; }
-        .trasus-hero { padding: 12px 14px; }
-        .trasus-hero-text h1 { font-size: 20px !important; }
+        .trasus-hero { gap: 14px; padding: 16px; }
+        .trasus-hero img { width: 96px; max-height: 62px; }
+        .trasus-hero-text h1 { font-size: 16px !important; letter-spacing: 0.09em; }
+        .trasus-hero-text p { font-size: 9px; letter-spacing: 0.12em; }
         .box-carrinho, .box-desconto { padding: 12px; }
         [data-testid="stMetricValue"] { font-size: 18px !important; }
     }
@@ -453,8 +495,8 @@ st.markdown(f"""
 <div class="trasus-hero">
     {_logo_html}
     <div class="trasus-hero-text">
-        <h1>TRASUS</h1>
-        <p>Sistema de Gestão de Orçamentos</p>
+        <h1>GESTÃO DE ORÇAMENTOS</h1>
+        <p>Identidade em cada detalhe.</p>
     </div>
 </div>
 """, unsafe_allow_html=True)
