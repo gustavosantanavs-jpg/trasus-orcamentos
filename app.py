@@ -6,7 +6,6 @@ import base64
 import urllib.parse
 import urllib.request
 import io
-import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
@@ -87,8 +86,11 @@ TAMANHOS_PADRAO = [
     {"nome": "GG", "adicional": True},
     {"nome": "XG", "adicional": True},
     {"nome": "EG", "adicional": False},
-    {"nome": "EGG", "adicional": False},
-    {"nome": "EXG", "adicional": False},
+    {"nome": "EGG", "adicional": True},
+    {"nome": "EXG", "adicional": True},
+    {"nome": "G1", "adicional": False},
+    {"nome": "G2", "adicional": False},
+    {"nome": "G3", "adicional": False},
     {"nome": "2", "adicional": False},
     {"nome": "4", "adicional": False},
     {"nome": "6", "adicional": False},
@@ -247,6 +249,9 @@ def novo_pedido():
     st.session_state.desconto_valor = 0.0
     st.session_state.valor_manual_ativado = False
     st.session_state.valor_manual = 0.0
+    for _chave in list(st.session_state.keys()):
+        if _chave.startswith("qtd_tam_"):
+            st.session_state[_chave] = 0
 
 def remover_item(index):
     st.session_state.carrinho.pop(index)
@@ -278,6 +283,17 @@ if "Dry-Fit Premium" not in TABELA_TECIDOS:
 if GOLA_VAZIA not in TABELA_GOLAS:
     TABELA_GOLAS[GOLA_VAZIA] = 0.00
     _precisa_atualizar = True
+
+_nomes_tamanhos_existentes = {t['nome'] for t in LISTA_TAMANHOS}
+for _tam in LISTA_TAMANHOS:
+    if _tam['nome'] in ("EGG", "EXG") and not _tam.get("adicional"):
+        _tam['adicional'] = True
+        _precisa_atualizar = True
+for _novo_tam_nome in ["G1", "G2", "G3"]:
+    if _novo_tam_nome not in _nomes_tamanhos_existentes:
+        LISTA_TAMANHOS.append({"nome": _novo_tam_nome, "adicional": False})
+        _precisa_atualizar = True
+
 if _precisa_atualizar:
     salvar_precos(TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_GOLAS, LISTA_TAMANHOS)
 
@@ -565,42 +581,48 @@ with aba_criar:
         personalizacao_selecionada = st.multiselect("Personalizações", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
 
     st.markdown("**Grade de Tamanhos**")
+    st.caption("Toque em ➕ para somar ou ➖ para tirar uma unidade. Também dá pra digitar direto no campo.")
+
+    def _incrementar_qtd_tam(nome):
+        chave = f"qtd_tam_{nome}"
+        st.session_state[chave] = st.session_state.get(chave, 0) + 1
+
+    def _decrementar_qtd_tam(nome):
+        chave = f"qtd_tam_{nome}"
+        atual = st.session_state.get(chave, 0)
+        if atual > 0:
+            st.session_state[chave] = atual - 1
+
+    def _renderizar_linha_tamanho(tam):
+        nome = tam['nome']
+        chave = f"qtd_tam_{nome}"
+        if chave not in st.session_state:
+            st.session_state[chave] = 0
+        label_nome = f"{nome} (+{PERCENTUAL_GG_XG:.0f}%)" if tam.get("adicional") else nome
+        col_nome, col_menos, col_qtd, col_mais = st.columns([2.5, 1, 1.5, 1])
+        with col_nome:
+            st.markdown(f"<div style='padding-top:8px;'>{label_nome}</div>", unsafe_allow_html=True)
+        with col_menos:
+            st.button("➖", key=f"btn_menos_{nome}", on_click=_decrementar_qtd_tam, args=(nome,), use_container_width=True)
+        with col_qtd:
+            st.number_input("Qtd", min_value=0, step=1, key=chave, label_visibility="collapsed")
+        with col_mais:
+            st.button("➕", key=f"btn_mais_{nome}", on_click=_incrementar_qtd_tam, args=(nome,), use_container_width=True)
 
     tamanhos_adulto = [t for t in LISTA_TAMANHOS if not t['nome'].isdigit()]
     tamanhos_infantil = [t for t in LISTA_TAMANHOS if t['nome'].isdigit()]
 
-    qtds_tamanhos = {}
-
     if tamanhos_adulto:
         st.caption("👕 Adulto")
-        df_adulto = pd.DataFrame([
-            {"Tamanho": t['nome'], "Adicional": f"+{PERCENTUAL_GG_XG:.0f}%" if t.get("adicional") else "—", "Qtd": 0}
-            for t in tamanhos_adulto
-        ])
-        edit_adulto = st.data_editor(
-            df_adulto, hide_index=True, use_container_width=True, key="editor_tam_adulto",
-            column_config={
-                "Tamanho": st.column_config.TextColumn(disabled=True),
-                "Adicional": st.column_config.TextColumn(disabled=True, width="small"),
-                "Qtd": st.column_config.NumberColumn(min_value=0, step=1, width="small")
-            }
-        )
-        for _, linha in edit_adulto.iterrows():
-            qtds_tamanhos[linha["Tamanho"]] = int(linha["Qtd"])
+        for tam in tamanhos_adulto:
+            _renderizar_linha_tamanho(tam)
 
     if tamanhos_infantil:
         st.caption("👶 Infantil")
-        df_infantil = pd.DataFrame([{"Tamanho": t['nome'], "Qtd": 0} for t in tamanhos_infantil])
-        edit_infantil = st.data_editor(
-            df_infantil, hide_index=True, use_container_width=True, key="editor_tam_infantil",
-            column_config={
-                "Tamanho": st.column_config.TextColumn(disabled=True),
-                "Qtd": st.column_config.NumberColumn(min_value=0, step=1, width="small")
-            }
-        )
-        for _, linha in edit_infantil.iterrows():
-            qtds_tamanhos[linha["Tamanho"]] = int(linha["Qtd"])
+        for tam in tamanhos_infantil:
+            _renderizar_linha_tamanho(tam)
 
+    qtds_tamanhos = {t['nome']: st.session_state.get(f"qtd_tam_{t['nome']}", 0) for t in LISTA_TAMANHOS}
     qtd_item_total = sum(qtds_tamanhos.values())
 
     preco_calculado_preview = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + TABELA_GOLAS.get(gola_selecionada, 0.0) + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
@@ -654,6 +676,9 @@ with aba_criar:
                     "grade": grade_adicional,
                     "personalizacao": ", ".join(personalizacao_selecionada)
                 })
+
+            for _tam_reset in LISTA_TAMANHOS:
+                st.session_state[f"qtd_tam_{_tam_reset['nome']}"] = 0
 
             st.rerun()
 
