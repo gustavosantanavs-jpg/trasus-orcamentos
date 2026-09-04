@@ -1,11 +1,12 @@
 import streamlit as st
 import os
 import tempfile
-import json
+import html
 import base64
 import urllib.parse
 import urllib.request
 import io
+import uuid
 from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
@@ -216,7 +217,7 @@ def exibir_popup_pdf(pdf_bytes, numero_orcamento, telefone_cliente=None, nome_cl
             mensagem_codificada = urllib.parse.quote(mensagem)
             link_wa = f"https://wa.me/{telefone_limpo}?text={mensagem_codificada}"
             st.markdown(
-                f'<a href="{link_wa}" target="_blank" style="display:block; text-align:center; margin-top:10px; color:#25D366; font-weight:600; text-decoration:none;">💬 Abrir conversa com {nome_cliente or "o cliente"} no WhatsApp</a>',
+                f'<a href="{link_wa}" target="_blank" style="display:block; text-align:center; margin-top:10px; color:#25D366; font-weight:600; text-decoration:none;">💬 Abrir conversa com {html.escape(nome_cliente or "o cliente")} no WhatsApp</a>',
                 unsafe_allow_html=True
             )
     st.caption("Dica: toque em 'Enviar para WhatsApp' para compartilhar o PDF direto pelo menu do seu celular, sem precisar baixar antes.")
@@ -258,11 +259,22 @@ def remover_item(index):
 
 if 'os_editando' not in st.session_state:
     st.session_state.os_editando = None
+if 'os_carregar_pendente' not in st.session_state:
+    st.session_state.os_carregar_pendente = None
 if 'confirmar_exclusao_os' not in st.session_state:
     st.session_state.confirmar_exclusao_os = None
 
 def nova_os():
     st.session_state.os_editando = None
+    st.session_state.os_carregar_pendente = None
+    for _chave in [
+        "tipo_os_radio", "os_orcamento_vinculado", "os_avulsa_nome",
+        "os_avulsa_telefone", "os_avulsa_empresa", "os_avulsa_email",
+        "os_avulsa_descricao", "os_avulsa_valor_total", "os_valor_entrada",
+        "os_valor_restante_display", "os_prazo_entrega", "os_status_producao",
+        "os_observacoes", "os_fotos_upload"
+    ]:
+        st.session_state.pop(_chave, None)
 
 banco = carregar_banco()
 banco_os = carregar_banco_os()
@@ -368,8 +380,7 @@ st.markdown("""
         color: var(--silver-bright) !important;
         border: 1px solid var(--border-strong) !important;
         font-weight: 600 !important;
-        letter-spacing: 0.07em;
-        text-transform: uppercase;
+        letter-spacing: 0.015em;
         border-radius: 6px !important;
         box-shadow: 0 8px 22px var(--shadow);
         transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
@@ -394,12 +405,13 @@ st.markdown("""
 
     .box-carrinho {
         background: linear-gradient(145deg, rgba(27, 27, 29, 0.96), rgba(14, 14, 15, 0.96));
-        padding: 16px;
-        border-radius: 8px;
+        padding: 15px 16px;
+        border-radius: 10px;
         border: 1px solid var(--border);
         border-left: 3px solid #c7c8ca;
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
         margin-bottom: 12px;
+        line-height: 1.65;
     }
     .box-desconto {
         background: linear-gradient(145deg, #181819, #0f0f10);
@@ -408,6 +420,99 @@ st.markdown("""
         border: 1px solid var(--border);
         box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
         margin-bottom: 12px;
+    }
+
+    .section-kicker {
+        color: #a7a9ad;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        margin: 3px 0 3px;
+    }
+
+    .section-heading {
+        color: #f4f4f5;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.015em;
+        margin: 0 0 14px;
+    }
+
+    .section-heading small {
+        color: #96989c;
+        font-family: 'Manrope', sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0;
+    }
+
+    .step-strip {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 20px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    .step-pill {
+        align-items: center;
+        background: rgba(215, 216, 218, 0.06);
+        border: 1px solid rgba(215, 216, 218, 0.12);
+        border-radius: 999px;
+        color: #a8aaae;
+        display: flex;
+        font-size: 11px;
+        gap: 7px;
+        min-width: max-content;
+        padding: 7px 11px;
+    }
+
+    .step-pill.active {
+        background: linear-gradient(120deg, rgba(244, 244, 245, 0.18), rgba(215, 216, 218, 0.06));
+        border-color: rgba(244, 244, 245, 0.42);
+        color: #f4f4f5;
+    }
+
+    .step-number {
+        align-items: center;
+        background: #d7d8da;
+        border-radius: 50%;
+        color: #0a0a0a;
+        display: inline-flex;
+        font-size: 10px;
+        font-weight: 800;
+        height: 19px;
+        justify-content: center;
+        width: 19px;
+    }
+
+    .summary-total-card {
+        background: linear-gradient(135deg, #f4f4f5, #b8babd);
+        border-radius: 9px;
+        color: #090909;
+        padding: 11px 14px;
+        text-align: center;
+    }
+
+    .summary-total-card .summary-label {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .summary-total-card .summary-value {
+        font-size: 23px;
+        font-weight: 800;
+        margin-top: 2px;
+    }
+
+    .helper-text {
+        color: #a6a8ac;
+        font-size: 12px;
+        line-height: 1.5;
     }
 
     [data-testid="stMetric"] {
@@ -426,6 +531,8 @@ st.markdown("""
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        scrollbar-width: thin;
     }
     .stTabs [data-baseweb="tab"] {
         background: transparent;
@@ -507,6 +614,10 @@ st.markdown("""
         .trasus-hero-text p { font-size: 9px; letter-spacing: 0.12em; }
         .box-carrinho, .box-desconto { padding: 12px; }
         [data-testid="stMetricValue"] { font-size: 18px !important; }
+        .section-heading { font-size: 17px; }
+        .step-pill { font-size: 10px; padding: 6px 9px; }
+        .summary-total-card .summary-value { font-size: 20px; }
+        .stButton>button { min-height: 42px; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -548,6 +659,14 @@ with aba_criar:
     with col_btn_novo:
         st.button("🔄 Novo Pedido (Limpar)", on_click=novo_pedido, use_container_width=True)
 
+    st.markdown("""
+    <div class="step-strip">
+        <div class="step-pill active"><span class="step-number">1</span> Cliente e produto</div>
+        <div class="step-pill active"><span class="step-number">2</span> Grade e valores</div>
+        <div class="step-pill active"><span class="step-number">3</span> Anexos e finalização</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("---")
 
     # ==========================
@@ -570,7 +689,7 @@ with aba_criar:
     # ==========================
     # ÁREA 1: ADICIONAR ITEM
     # ==========================
-    st.header("1. Configurar Novo Item")
+    st.markdown('<div class="section-kicker">Etapa 1</div><div class="section-heading">Configurar novo item <small>Escolha o produto, tecido e personalização</small></div>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         modelo_selecionado = st.selectbox("Produto", list(TABELA_MODELOS.keys()))
@@ -580,8 +699,8 @@ with aba_criar:
     with col2:
         personalizacao_selecionada = st.multiselect("Personalizações", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
 
-    st.markdown("**Grade de Tamanhos**")
-    st.caption("Toque em ➕ para somar ou ➖ para tirar uma unidade. Também dá pra digitar direto no campo.")
+    st.markdown('<div class="section-kicker">Quantidade</div><div class="section-heading">Grade de tamanhos</div>', unsafe_allow_html=True)
+    st.markdown('<div class="helper-text">Use os botões para ajustar rapidamente ou digite a quantidade diretamente em cada tamanho.</div>', unsafe_allow_html=True)
 
     def _incrementar_qtd_tam(nome):
         chave = f"qtd_tam_{nome}"
@@ -624,6 +743,7 @@ with aba_criar:
 
     qtds_tamanhos = {t['nome']: st.session_state.get(f"qtd_tam_{t['nome']}", 0) for t in LISTA_TAMANHOS}
     qtd_item_total = sum(qtds_tamanhos.values())
+    st.markdown(f'<div class="helper-text" style="margin: 8px 0 14px;">Total selecionado: <strong style="color:#f4f4f5;">{qtd_item_total} peça(s)</strong></div>', unsafe_allow_html=True)
 
     preco_calculado_preview = TABELA_MODELOS[modelo_selecionado] + TABELA_TECIDOS[tecido_selecionado] + TABELA_GOLAS.get(gola_selecionada, 0.0) + sum([TABELA_PERSONALIZACAO[p] for p in personalizacao_selecionada])
 
@@ -687,7 +807,7 @@ with aba_criar:
     # ==========================
     # ÁREA 2: RESUMO (COM BOTÃO REMOVER)
     # ==========================
-    st.header(f"2. Resumo do Pedido ({len(st.session_state.carrinho)} itens)")
+    st.markdown(f'<div class="section-kicker">Etapa 2</div><div class="section-heading">Resumo do pedido <small>{len(st.session_state.carrinho)} item(ns)</small></div>', unsafe_allow_html=True)
     subtotal_pedido = 0.0
 
     if len(st.session_state.carrinho) == 0:
@@ -721,7 +841,7 @@ with aba_criar:
     # ==========================
     # ÁREA 2.1: DESCONTO E AJUSTE MANUAL DE VALOR
     # ==========================
-    st.header("2.1 Desconto e Ajuste de Valor")
+    st.markdown('<div class="section-kicker">Condição comercial</div><div class="section-heading">Desconto e ajuste de valor</div>', unsafe_allow_html=True)
     st.markdown('<div class="box-desconto">', unsafe_allow_html=True)
 
     col_desc1, col_desc2 = st.columns(2)
@@ -746,7 +866,7 @@ with aba_criar:
     if desconto_tipo == "Desconto (%)":
         valor_desconto_calculado = subtotal_pedido * (desconto_valor / 100)
     elif desconto_tipo == "Desconto (R$)":
-        valor_desconto_calculado = desconto_valor
+        valor_desconto_calculado = min(desconto_valor, subtotal_pedido)
     else:
         valor_desconto_calculado = 0.0
 
@@ -777,7 +897,11 @@ with aba_criar:
         col_m2.metric("Ajuste Manual", "Ativo")
     else:
         col_m2.metric("Desconto Aplicado", f"R$ {valor_desconto_calculado:.2f}")
-    col_m3.metric("Total Final", f"R$ {valor_final_pedido:.2f}")
+    with col_m3:
+        st.markdown(f'''<div class="summary-total-card">
+            <div class="summary-label">Total final</div>
+            <div class="summary-value">R$ {valor_final_pedido:.2f}</div>
+        </div>''', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -786,7 +910,7 @@ with aba_criar:
     # ==========================
     # ÁREA 3: ANEXOS MÚLTIPLOS E PDF
     # ==========================
-    st.header("3. Anexos e Finalização")
+    st.markdown('<div class="section-kicker">Etapa 3</div><div class="section-heading">Anexos e finalização</div>', unsafe_allow_html=True)
     imagens_upload = st.file_uploader("Anexe as imagens (Até 2 recomendadas)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
     if st.button("Gerar Orçamento / Atualizar", type="primary", use_container_width=True):
@@ -799,7 +923,7 @@ with aba_criar:
             if st.session_state.orcamento_editando:
                 numero_orcamento = st.session_state.orcamento_editando
             else:
-                numero_orcamento = f"TRC-{datetime.now().strftime('%y%m%d-%H%M%S')}"
+                numero_orcamento = f"TRC-{datetime.now().strftime('%y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
                 st.session_state.orcamento_editando = numero_orcamento
 
             banco[numero_orcamento] = {
@@ -971,7 +1095,38 @@ with aba_os:
     # --------------------------
     # 1. VÍNCULO
     # --------------------------
-    st.header("1. Vínculo do Pedido")
+    st.markdown('<div class="section-kicker">Etapa 1</div><div class="section-heading">Vínculo do pedido <small>Escolha a origem desta ordem de serviço</small></div>', unsafe_allow_html=True)
+
+    # Ao editar, carrega os valores antes de criar os widgets do Streamlit.
+    # Isso evita que os campos da OS sejam substituídos por valores padrão.
+    _os_pendente = st.session_state.get("os_carregar_pendente")
+    if _os_pendente and _os_pendente in banco_os:
+        _dados_os_edicao = banco_os[_os_pendente]
+        _orcamento_edicao = _dados_os_edicao.get("orcamento_vinculado")
+        st.session_state["tipo_os_radio"] = (
+            "Vincular a Orçamento Existente" if _orcamento_edicao
+            else "OS Avulsa (sem orçamento)"
+        )
+        if _orcamento_edicao in banco:
+            st.session_state["os_orcamento_vinculado"] = _orcamento_edicao
+        st.session_state["os_avulsa_nome"] = _dados_os_edicao.get("cliente", {}).get("nome", "")
+        st.session_state["os_avulsa_telefone"] = _dados_os_edicao.get("cliente", {}).get("telefone", "")
+        st.session_state["os_avulsa_empresa"] = _dados_os_edicao.get("cliente", {}).get("empresa", "")
+        st.session_state["os_avulsa_email"] = _dados_os_edicao.get("cliente", {}).get("email", "")
+        st.session_state["os_avulsa_descricao"] = _dados_os_edicao.get("descricao_avulsa", "")
+        st.session_state["os_avulsa_valor_total"] = float(_dados_os_edicao.get("valor_total", 0.0))
+        st.session_state["os_valor_entrada"] = float(_dados_os_edicao.get("valor_entrada", 0.0))
+        st.session_state["os_valor_restante_display"] = float(_dados_os_edicao.get("valor_restante", 0.0))
+        try:
+            st.session_state["os_prazo_entrega"] = datetime.strptime(
+                _dados_os_edicao.get("prazo_entrega", ""), "%d/%m/%Y"
+            ).date()
+        except (TypeError, ValueError):
+            st.session_state.pop("os_prazo_entrega", None)
+        st.session_state["os_status_producao"] = _dados_os_edicao.get("status_producao", "Em Produção")
+        st.session_state["os_observacoes"] = _dados_os_edicao.get("observacoes", "")
+        st.session_state.os_carregar_pendente = None
+
     tipo_os = st.radio(
         "Origem da OS",
         ["Vincular a Orçamento Existente", "OS Avulsa (sem orçamento)"],
@@ -993,7 +1148,8 @@ with aba_os:
             orcamento_vinculado = st.selectbox(
                 "Selecione o Orçamento",
                 opcoes_orc,
-                format_func=lambda n: f"{n} - {banco[n]['cliente']['nome']} ({banco[n]['cliente']['empresa']}) - R$ {banco[n]['total']:.2f}"
+                format_func=lambda n: f"{n} - {banco[n]['cliente']['nome']} ({banco[n]['cliente']['empresa']}) - R$ {banco[n]['total']:.2f}",
+                key="os_orcamento_vinculado"
             )
             dados_orc = banco[orcamento_vinculado]
             cliente_os = dados_orc["cliente"]
@@ -1002,7 +1158,7 @@ with aba_os:
 
             st.markdown(f"""
             <div class="box-carrinho">
-                <strong>Cliente:</strong> {cliente_os['nome']} | <strong>Empresa:</strong> {cliente_os['empresa']}<br>
+                <strong>Cliente:</strong> {html.escape(str(cliente_os['nome']))} | <strong>Empresa:</strong> {html.escape(str(cliente_os['empresa']))}<br>
                 <strong>Itens:</strong> {len(itens_os)} | <strong>Valor Total:</strong> R$ {valor_total_os:.2f}
             </div>
             """, unsafe_allow_html=True)
@@ -1024,7 +1180,7 @@ with aba_os:
     # --------------------------
     # 2. PAGAMENTO
     # --------------------------
-    st.header("2. Pagamento")
+    st.markdown('<div class="section-kicker">Etapa 2</div><div class="section-heading">Pagamento <small>Controle de entrada e saldo</small></div>', unsafe_allow_html=True)
     col_pag1, col_pag2 = st.columns(2)
     with col_pag1:
         valor_entrada_os = st.number_input("Valor de Entrada / Sinal (R$)", min_value=0.0, max_value=max(valor_total_os, 0.0) if valor_total_os > 0 else None, step=1.0, key="os_valor_entrada")
@@ -1042,14 +1198,15 @@ with aba_os:
         status_pagamento_os = "Parcial"
 
     cor_status_pag = {"Pendente": "🔴", "Parcial": "🟡", "Pago": "🟢"}
-    st.caption(f"Status do pagamento: {cor_status_pag[status_pagamento_os]} **{status_pagamento_os}**")
+    classe_status_pag = {"Pendente": "red", "Parcial": "yellow", "Pago": "green"}[status_pagamento_os]
+    st.markdown(f'<span class="status-badge {classe_status_pag}">{cor_status_pag[status_pagamento_os]} {status_pagamento_os}</span>', unsafe_allow_html=True)
 
     st.markdown("---")
 
     # --------------------------
     # 3. PRODUÇÃO E ENTREGA
     # --------------------------
-    st.header("3. Produção e Entrega")
+    st.markdown('<div class="section-kicker">Etapa 3</div><div class="section-heading">Produção e entrega <small>Prazo, status e observações</small></div>', unsafe_allow_html=True)
     col_prod1, col_prod2 = st.columns(2)
     with col_prod1:
         prazo_entrega_os = st.date_input("Prazo de Entrega", key="os_prazo_entrega")
@@ -1063,7 +1220,7 @@ with aba_os:
     # --------------------------
     # 4. FOTOS DA CAMISA
     # --------------------------
-    st.header("4. Fotos da Camisa")
+    st.markdown('<div class="section-kicker">Referências visuais</div><div class="section-heading">Fotos da camisa</div>', unsafe_allow_html=True)
     fotos_os_upload = st.file_uploader("Anexe fotos (mockup, arte final, referência do cliente)", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key="os_fotos_upload")
 
     st.markdown("---")
@@ -1082,7 +1239,7 @@ with aba_os:
             elif orcamento_vinculado:
                 numero_os = f"OS-{orcamento_vinculado}"
             else:
-                numero_os = f"OS-AV-{datetime.now().strftime('%y%m%d-%H%M%S')}"
+                numero_os = f"OS-AV-{datetime.now().strftime('%y%m%d-%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
 
             # Salva fotos novas no Firebase Storage (mantém fotos já existentes se estiver editando)
             fotos_paths = banco_os.get(numero_os, {}).get("fotos", []) if numero_os in banco_os else []
@@ -1184,7 +1341,7 @@ with aba_os:
     # --------------------------
     # HISTÓRICO DE OS
     # --------------------------
-    st.header("📋 Histórico de Ordens de Serviço")
+    st.markdown('<div class="section-kicker">Acompanhamento</div><div class="section-heading">Histórico de ordens de serviço</div>', unsafe_allow_html=True)
     termo_busca_os = st.text_input("Buscar por Cliente, Empresa ou Número da OS:", key="busca_os")
 
     if len(banco_os) == 0:
@@ -1237,7 +1394,9 @@ with aba_os:
                 with col_edit_os:
                     if st.button("✏️ Editar esta OS", key=f"edit_os_{num_os}", use_container_width=True):
                         st.session_state.os_editando = num_os
+                        st.session_state.os_carregar_pendente = num_os
                         st.success("OS carregada para edição. Ajuste os campos acima e clique em 'Salvar Ordem de Serviço'.")
+                        st.rerun()
 
                 with col_del_os:
                     if st.session_state.confirmar_exclusao_os == num_os:
@@ -1272,7 +1431,7 @@ with aba_config:
 
     def bloco_categoria(titulo, tabela_atual, chave_categoria, icone):
         st.markdown("---")
-        st.header(f"{icone} {titulo}")
+        st.markdown(f'<div class="section-heading">{icone} {titulo}</div>', unsafe_allow_html=True)
 
         if len(tabela_atual) == 0:
             st.info("Nenhum item cadastrado ainda.")
@@ -1356,7 +1515,7 @@ with aba_config:
     bloco_categoria("Golas", dict(TABELA_GOLAS), "gola", "👔")
 
     st.markdown("---")
-    st.header("📏 Percentual Adicional")
+    st.markdown('<div class="section-heading">📏 Percentual adicional</div>', unsafe_allow_html=True)
     st.caption("Percentual aplicado automaticamente sobre o preço unitário para os tamanhos marcados como 'com adicional' na Grade de Tamanhos abaixo.")
 
     novo_percentual = st.number_input(
@@ -1370,7 +1529,7 @@ with aba_config:
         st.rerun()
 
     st.markdown("---")
-    st.header("📐 Grade de Tamanhos")
+    st.markdown('<div class="section-heading">📐 Grade de tamanhos</div>', unsafe_allow_html=True)
     st.caption("Adicione, remova ou marque quais tamanhos recebem o adicional de percentual configurado acima.")
 
     tamanhos_para_remover = []
