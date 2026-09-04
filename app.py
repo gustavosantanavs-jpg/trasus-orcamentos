@@ -86,12 +86,12 @@ TAMANHOS_PADRAO = [
     {"nome": "G", "adicional": False},
     {"nome": "GG", "adicional": True},
     {"nome": "XG", "adicional": True},
-    {"nome": "EG", "adicional": False},
+    {"nome": "EG", "adicional": True},
     {"nome": "EGG", "adicional": True},
     {"nome": "EXG", "adicional": True},
-    {"nome": "G1", "adicional": False},
-    {"nome": "G2", "adicional": False},
-    {"nome": "G3", "adicional": False},
+    {"nome": "G1", "adicional": True},
+    {"nome": "G2", "adicional": True},
+    {"nome": "G3", "adicional": True},
     {"nome": "2", "adicional": False},
     {"nome": "4", "adicional": False},
     {"nome": "6", "adicional": False},
@@ -101,6 +101,10 @@ TAMANHOS_PADRAO = [
     {"nome": "14", "adicional": False},
     {"nome": "16", "adicional": False},
 ]
+
+# Todos os tamanhos a partir de GG recebem o adicional configurado.
+# O percentual continua sendo controlado por PERCENTUAL_GG_XG.
+TAMANHOS_COM_ADICIONAL = {"GG", "XG", "EG", "EGG", "EXG", "G1", "G2", "G3"}
 
 def salvar_precos(modelos, tecidos, personalizacao, percentual_gg_xg=None, golas=None, tamanhos=None):
     doc_atual = db.collection("configuracoes").document("precos").get()
@@ -298,12 +302,12 @@ if GOLA_VAZIA not in TABELA_GOLAS:
 
 _nomes_tamanhos_existentes = {t['nome'] for t in LISTA_TAMANHOS}
 for _tam in LISTA_TAMANHOS:
-    if _tam['nome'] in ("EGG", "EXG") and not _tam.get("adicional"):
+    if _tam['nome'].strip().upper() in TAMANHOS_COM_ADICIONAL and not _tam.get("adicional"):
         _tam['adicional'] = True
         _precisa_atualizar = True
 for _novo_tam_nome in ["G1", "G2", "G3"]:
     if _novo_tam_nome not in _nomes_tamanhos_existentes:
-        LISTA_TAMANHOS.append({"nome": _novo_tam_nome, "adicional": False})
+        LISTA_TAMANHOS.append({"nome": _novo_tam_nome, "adicional": True})
         _precisa_atualizar = True
 
 if _precisa_atualizar:
