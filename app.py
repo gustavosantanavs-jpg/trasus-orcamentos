@@ -6,6 +6,7 @@ import base64
 import urllib.parse
 import urllib.request
 import io
+import pandas as pd
 from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
@@ -130,10 +131,10 @@ def carregar_precos():
         )
     else:
         modelos_padrao = {"Camiseta Básica": 35.00, "Camisa Polo": 55.00, "Camisa Social": 85.00, "Regata": 28.00, "Shorts": 25.00, "Calça Esportiva": 45.00, "Baby Look Feminina": 35.00}
-        tecidos_padrao = {"Algodão 100%": 0.00, "Malha Fria (PV)": 2.50, "Dry-Fit": 5.00, "Piquet (Polo)": 8.00, "Cacharel": 3.00, "Helanca": 4.50}
+        tecidos_padrao = {"Algodão 100%": 0.00, "Malha Fria (PV)": 2.50, "Dry-Fit": 5.00, "Dry-Fit Bolt": 6.00, "Dry-Fit Premium": 7.50, "Piquet (Polo)": 8.00, "Cacharel": 3.00, "Helanca": 4.50}
         personalizacao_padrao = {"Sem Personalização": 0.00, "Silk Screen (Estampa)": 4.50, "Bordado Peito": 8.00, "Bordado Costas": 15.00, "Sublimação Total": 12.00}
         percentual_padrao = 25.0
-        golas_padrao = {"Gola Careca": 0.00, "Gola V": 1.50, "Gola Polo": 3.00}
+        golas_padrao = {"Sem Gola": 0.00, "Gola Careca": 0.00, "Gola V": 1.50, "Gola Polo": 3.00}
         salvar_precos(modelos_padrao, tecidos_padrao, personalizacao_padrao, percentual_padrao, golas_padrao, TAMANHOS_PADRAO)
         return modelos_padrao, tecidos_padrao, personalizacao_padrao, percentual_padrao, golas_padrao, TAMANHOS_PADRAO
 
@@ -265,6 +266,20 @@ banco_os = carregar_banco_os()
 # TABELAS DE PREÇOS (editáveis via aba Configurações, salvas no Firestore)
 # ==========================
 TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_GOLAS, LISTA_TAMANHOS = carregar_precos()
+
+GOLA_VAZIA = "Sem Gola"
+_precisa_atualizar = False
+if "Dry-Fit Bolt" not in TABELA_TECIDOS:
+    TABELA_TECIDOS["Dry-Fit Bolt"] = 6.00
+    _precisa_atualizar = True
+if "Dry-Fit Premium" not in TABELA_TECIDOS:
+    TABELA_TECIDOS["Dry-Fit Premium"] = 7.50
+    _precisa_atualizar = True
+if GOLA_VAZIA not in TABELA_GOLAS:
+    TABELA_GOLAS[GOLA_VAZIA] = 0.00
+    _precisa_atualizar = True
+if _precisa_atualizar:
+    salvar_precos(TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_GOLAS, LISTA_TAMANHOS)
 
 # ==========================
 # ESTILOS VISUAIS (CSS) - TEMA PREMIUM PRETO E PRATA
@@ -544,22 +559,47 @@ with aba_criar:
     with col1:
         modelo_selecionado = st.selectbox("Produto", list(TABELA_MODELOS.keys()))
         tecido_selecionado = st.selectbox("Tecido", list(TABELA_TECIDOS.keys()))
-        gola_selecionada = st.selectbox("Gola", list(TABELA_GOLAS.keys())) if TABELA_GOLAS else None
+        opcoes_golas = sorted(TABELA_GOLAS.keys(), key=lambda g: (g != GOLA_VAZIA, g))
+        gola_selecionada = st.selectbox("Gola", opcoes_golas) if TABELA_GOLAS else None
     with col2:
         personalizacao_selecionada = st.multiselect("Personalizações", list(TABELA_PERSONALIZACAO.keys()), default=["Sublimação Total"])
 
-    st.caption("Grade de Tamanhos")
+    st.markdown("**Grade de Tamanhos**")
+
+    tamanhos_adulto = [t for t in LISTA_TAMANHOS if not t['nome'].isdigit()]
+    tamanhos_infantil = [t for t in LISTA_TAMANHOS if t['nome'].isdigit()]
+
     qtds_tamanhos = {}
-    tamanhos_por_linha = 6
-    for i in range(0, len(LISTA_TAMANHOS), tamanhos_por_linha):
-        linha_tamanhos = LISTA_TAMANHOS[i:i + tamanhos_por_linha]
-        cols_tam = st.columns(len(linha_tamanhos))
-        for col_tam, tam in zip(cols_tam, linha_tamanhos):
-            with col_tam:
-                label = f"{tam['nome']} *" if tam.get("adicional") else tam['nome']
-                qtds_tamanhos[tam['nome']] = st.number_input(label, min_value=0, step=1, value=0, key=f"qtd_tam_{tam['nome']}")
-    if any(t.get("adicional") for t in LISTA_TAMANHOS):
-        st.caption(f"* Tamanhos com adicional de {PERCENTUAL_GG_XG:.0f}%")
+
+    if tamanhos_adulto:
+        st.caption("👕 Adulto")
+        df_adulto = pd.DataFrame([
+            {"Tamanho": t['nome'], "Adicional": f"+{PERCENTUAL_GG_XG:.0f}%" if t.get("adicional") else "—", "Qtd": 0}
+            for t in tamanhos_adulto
+        ])
+        edit_adulto = st.data_editor(
+            df_adulto, hide_index=True, use_container_width=True, key="editor_tam_adulto",
+            column_config={
+                "Tamanho": st.column_config.TextColumn(disabled=True),
+                "Adicional": st.column_config.TextColumn(disabled=True, width="small"),
+                "Qtd": st.column_config.NumberColumn(min_value=0, step=1, width="small")
+            }
+        )
+        for _, linha in edit_adulto.iterrows():
+            qtds_tamanhos[linha["Tamanho"]] = int(linha["Qtd"])
+
+    if tamanhos_infantil:
+        st.caption("👶 Infantil")
+        df_infantil = pd.DataFrame([{"Tamanho": t['nome'], "Qtd": 0} for t in tamanhos_infantil])
+        edit_infantil = st.data_editor(
+            df_infantil, hide_index=True, use_container_width=True, key="editor_tam_infantil",
+            column_config={
+                "Tamanho": st.column_config.TextColumn(disabled=True),
+                "Qtd": st.column_config.NumberColumn(min_value=0, step=1, width="small")
+            }
+        )
+        for _, linha in edit_infantil.iterrows():
+            qtds_tamanhos[linha["Tamanho"]] = int(linha["Qtd"])
 
     qtd_item_total = sum(qtds_tamanhos.values())
 
@@ -591,7 +631,7 @@ with aba_criar:
             grade_normal = " ".join(f"{tam}({q})" for tam, q in qtds_tamanhos.items() if tam not in nomes_adicional and q > 0)
             grade_adicional = " ".join(f"{tam}({q})" for tam, q in qtds_tamanhos.items() if tam in nomes_adicional and q > 0)
 
-            descricao_base = f"{modelo_selecionado} ({tecido_selecionado}, {gola_selecionada})" if gola_selecionada else f"{modelo_selecionado} ({tecido_selecionado})"
+            descricao_base = f"{modelo_selecionado} ({tecido_selecionado}, {gola_selecionada})" if gola_selecionada and gola_selecionada != GOLA_VAZIA else f"{modelo_selecionado} ({tecido_selecionado})"
             if ajustar_preco_item:
                 descricao_base += " [preço ajustado]"
 
