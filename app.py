@@ -245,6 +245,8 @@ if 'valor_manual' not in st.session_state:
     st.session_state.valor_manual = 0.0
 if 'confirmar_exclusao' not in st.session_state:
     st.session_state.confirmar_exclusao = None
+if 'grade_reset_pendente' not in st.session_state:
+    st.session_state.grade_reset_pendente = False
 
 def novo_pedido():
     st.session_state.carrinho = []
@@ -254,9 +256,7 @@ def novo_pedido():
     st.session_state.desconto_valor = 0.0
     st.session_state.valor_manual_ativado = False
     st.session_state.valor_manual = 0.0
-    for _chave in list(st.session_state.keys()):
-        if _chave.startswith("qtd_tam_"):
-            st.session_state[_chave] = 0
+    st.session_state.grade_reset_pendente = True
 
 def remover_item(index):
     st.session_state.carrinho.pop(index)
@@ -706,6 +706,15 @@ with aba_criar:
     st.markdown('<div class="section-kicker">Quantidade</div><div class="section-heading">Grade de tamanhos</div>', unsafe_allow_html=True)
     st.markdown('<div class="helper-text">Use os botões para ajustar rapidamente ou digite a quantidade diretamente em cada tamanho.</div>', unsafe_allow_html=True)
 
+    # O reset precisa acontecer antes da criação dos number_input. Se os
+    # widgets já existirem nesta execução, o Streamlit bloqueia a alteração
+    # direta de seus valores e apresenta erro de session_state.
+    if st.session_state.get("grade_reset_pendente", False):
+        for _chave in list(st.session_state.keys()):
+            if _chave.startswith("qtd_tam_"):
+                st.session_state[_chave] = 0
+        st.session_state.grade_reset_pendente = False
+
     def _incrementar_qtd_tam(nome):
         chave = f"qtd_tam_{nome}"
         st.session_state[chave] = st.session_state.get(chave, 0) + 1
@@ -801,9 +810,7 @@ with aba_criar:
                     "personalizacao": ", ".join(personalizacao_selecionada)
                 })
 
-            for _tam_reset in LISTA_TAMANHOS:
-                st.session_state[f"qtd_tam_{_tam_reset['nome']}"] = 0
-
+            st.session_state.grade_reset_pendente = True
             st.rerun()
 
     st.markdown("---")
