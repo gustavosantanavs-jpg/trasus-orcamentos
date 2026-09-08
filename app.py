@@ -247,6 +247,8 @@ if 'confirmar_exclusao' not in st.session_state:
     st.session_state.confirmar_exclusao = None
 if 'grade_reset_pendente' not in st.session_state:
     st.session_state.grade_reset_pendente = False
+if 'navegacao_pendente' not in st.session_state:
+    st.session_state.navegacao_pendente = None
 
 def novo_pedido():
     st.session_state.carrinho = []
@@ -650,9 +652,29 @@ st.markdown(f"""
 # ==========================
 # NAVEGAÇÃO EM ABAS
 # ==========================
-aba_criar, aba_buscar, aba_os, aba_config = st.tabs(["📝 Criar / Editar Orçamento", "🔍 Buscar Histórico", "🛠️ Ordem de Serviço", "⚙️ Configurações"])
+OPCOES_NAVEGACAO = [
+    "📝 Criar / Editar Orçamento",
+    "🔍 Buscar Histórico",
+    "🛠️ Ordem de Serviço",
+    "⚙️ Configurações"
+]
 
-with aba_criar:
+# A navegação é controlada pela sessão para permitir que os botões de edição
+# abram automaticamente a tela correta. st.tabs não possui uma API confiável
+# para selecionar uma aba por código.
+if st.session_state.get("navegacao_pendente"):
+    st.session_state.navegacao_principal = st.session_state.navegacao_pendente
+    st.session_state.navegacao_pendente = None
+
+aba_selecionada = st.radio(
+    "Navegação principal",
+    OPCOES_NAVEGACAO,
+    horizontal=True,
+    key="navegacao_principal",
+    label_visibility="collapsed"
+)
+
+if aba_selecionada == OPCOES_NAVEGACAO[0]:
     col_titulo, col_btn_novo = st.columns([3, 1])
     with col_titulo:
         if st.session_state.orcamento_editando:
@@ -1035,7 +1057,7 @@ with aba_criar:
 # ==========================
 # ABA 2: BUSCAR, EDITAR E EXCLUIR HISTÓRICO
 # ==========================
-with aba_buscar:
+if aba_selecionada == OPCOES_NAVEGACAO[1]:
     st.title("🔍 Histórico de Orçamentos")
     termo_busca = st.text_input("Buscar por Nome do Cliente, Empresa ou Número do Orçamento:")
     
@@ -1064,7 +1086,8 @@ with aba_buscar:
                             st.session_state.desconto_valor = dados.get('desconto_valor', 0.0)
                             st.session_state.valor_manual_ativado = dados.get('valor_manual_ativado', False)
                             st.session_state.valor_manual = dados.get('valor_manual', 0.0)
-                            st.success("Orçamento carregado! Volte para a aba 'Criar / Editar' no topo da tela para alterar os dados.")
+                            st.session_state.navegacao_pendente = OPCOES_NAVEGACAO[0]
+                            st.rerun()
 
                     with col_del:
                         if st.session_state.confirmar_exclusao == num:
@@ -1091,7 +1114,7 @@ with aba_buscar:
 # ==========================
 # ABA 3: ORDEM DE SERVIÇO
 # ==========================
-with aba_os:
+if aba_selecionada == OPCOES_NAVEGACAO[2]:
     col_os_titulo, col_os_btn = st.columns([3, 1])
     with col_os_titulo:
         if st.session_state.os_editando:
@@ -1436,7 +1459,7 @@ with aba_os:
 # ==========================
 # ABA 4: CONFIGURAÇÕES (PREÇOS EDITÁVEIS)
 # ==========================
-with aba_config:
+if aba_selecionada == OPCOES_NAVEGACAO[3]:
     st.title("⚙️ Configurações de Preços")
     st.caption("Edite os valores usados no cálculo dos orçamentos. As alterações ficam salvas permanentemente e valem para novos orçamentos.")
 
