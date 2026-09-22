@@ -19,13 +19,14 @@ class PDFTrasus(FPDF):
 
     def __init__(self):
         super().__init__()
-        self.set_margins(10, 85, 10)
+        self.set_margins(10, 42, 10)
         self.set_auto_page_break(auto=True, margin=25)
 
     def header(self):
-        if os.path.exists("background.jpg"):
-            self.image("background.jpg", x=0, y=0, w=self.w, h=self.h)
-        self.set_y(85)
+        fundo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "background_compacto.png")
+        if os.path.exists(fundo):
+            self.image(fundo, x=0, y=0, w=self.w, h=self.h)
+        self.set_y(42)
 
     def reservar_espaco(self, altura):
         if self.get_y() + altura > self.h - self.b_margin:
@@ -1036,11 +1037,11 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
             pdf.add_page()
             
             
-            pdf.set_y(30) 
+            pdf.set_y(38) 
             pdf.set_font("Arial", 'B', 10)
             pdf.cell(0, 10, f"Orçamento: {numero_orcamento}", ln=True, align="R") 
             
-            pdf.set_y(85) 
+            pdf.set_y(50) 
             
             pdf.set_font("Arial", 'B', 12)
             pdf.cell(0, 10, "PROPOSTA COMERCIAL", ln=True, align="C")
@@ -1361,11 +1362,11 @@ if aba_selecionada == OPCOES_NAVEGACAO[2]:
             pdf_os.add_page()
 
 
-            pdf_os.set_y(30)
+            pdf_os.set_y(38)
             pdf_os.set_font("Arial", 'B', 10)
             pdf_os.cell(0, 10, f"Ordem de Serviço: {numero_os}", ln=True, align="R")
 
-            pdf_os.set_y(85)
+            pdf_os.set_y(50)
             pdf_os.set_font("Arial", 'B', 12)
             pdf_os.cell(0, 10, "ORDEM DE SERVIÇO", ln=True, align="C")
             pdf_os.set_font("Arial", '', 10)
