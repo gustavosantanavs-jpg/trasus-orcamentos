@@ -1103,6 +1103,31 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
             pdf.cell(145, 10, "TOTAL DO PEDIDO:", align="R")
             pdf.cell(45, 10, f"R$ {valor_final_pedido:.2f}", align="C")
 
+            # Informa o adicional apenas quando a grade ainda não contém
+            # nenhum tamanho marcado como acima de G.
+            nomes_tamanhos_adicionais = TAMANHOS_COM_ADICIONAL | {
+                tamanho["nome"].strip().upper()
+                for tamanho in LISTA_TAMANHOS
+                if tamanho.get("adicional")
+            }
+            tem_tamanho_adicional = any(
+                token.split("(", 1)[0].strip().upper() in nomes_tamanhos_adicionais
+                for item in st.session_state.carrinho
+                for token in str(item.get("grade", "")).split()
+            )
+            if not tem_tamanho_adicional:
+                pdf.reservar_espaco(10)
+                pdf.ln(3)
+                pdf.set_font("Arial", 'I', 8)
+                pdf.set_text_color(90, 90, 90)
+                pdf.cell(
+                    0, 5,
+                    "Tamanhos acima de G terao acrescimo de 25% no valor unitario.",
+                    ln=True,
+                    align="L"
+                )
+                pdf.set_text_color(0, 0, 0)
+
             pdf_bytes = bytes_pdf(pdf)
             
             st.success("✅ Orçamento processado e salvo!")
