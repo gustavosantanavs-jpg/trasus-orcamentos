@@ -349,6 +349,10 @@ TABELA_MODELOS, TABELA_TECIDOS, TABELA_PERSONALIZACAO, PERCENTUAL_GG_XG, TABELA_
 
 GOLA_VAZIA = "Sem Gola"
 _precisa_atualizar = False
+if "Baby Look Feminina" not in TABELA_MODELOS:
+    # Mantém a opção disponível também em catálogos Firestore antigos.
+    TABELA_MODELOS["Baby Look Feminina"] = 35.00
+    _precisa_atualizar = True
 if "Dry-Fit Bolt" not in TABELA_TECIDOS:
     TABELA_TECIDOS["Dry-Fit Bolt"] = 6.00
     _precisa_atualizar = True
@@ -776,6 +780,8 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
     col1, col2 = st.columns(2)
     with col1:
         modelo_selecionado = st.selectbox("Produto", list(TABELA_MODELOS.keys()))
+        if "baby look" not in modelo_selecionado.casefold():
+            st.caption("Selecione ‘Baby Look Feminina’ para abrir a grade dedicada, sem adicional por tamanho.")
         tecido_selecionado = st.selectbox("Tecido", list(TABELA_TECIDOS.keys()))
         opcoes_golas = sorted(TABELA_GOLAS.keys(), key=lambda g: (g != GOLA_VAZIA, g))
         gola_selecionada = st.selectbox("Gola", opcoes_golas) if TABELA_GOLAS else None
@@ -825,12 +831,18 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
     prefixo_grade = "babylook_" if produto_baby_look else ""
 
     if produto_baby_look and tamanhos_adulto:
-        st.markdown('<div class="helper-text">Grade Baby Look: sem adicional por tamanho.</div>', unsafe_allow_html=True)
-        tamanhos_baby_look = [dict(tamanho, adicional=False) for tamanho in tamanhos_adulto]
-        _renderizar_grade_cartoes(
-            tamanhos_baby_look, prefixo_grade, "👚 Baby Look Feminina",
-            mostrar_adicional=False
-        )
+        with st.container(border=True):
+            st.markdown(
+                '<div class="section-kicker">Grade exclusiva do produto</div>'
+                '<div class="section-heading">👚 Baby Look Feminina '
+                '<small>sem adicional de tamanho</small></div>',
+                unsafe_allow_html=True
+            )
+            tamanhos_baby_look = [dict(tamanho, adicional=False) for tamanho in tamanhos_adulto]
+            _renderizar_grade_cartoes(
+                tamanhos_baby_look, prefixo_grade, "Tamanhos disponíveis",
+                mostrar_adicional=False
+            )
     elif tamanhos_adulto:
         _renderizar_grade_cartoes(tamanhos_adulto, prefixo_grade, "👕 Adulto")
 
