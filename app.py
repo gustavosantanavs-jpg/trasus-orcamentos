@@ -794,46 +794,54 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
                 st.session_state[_chave] = 0
         st.session_state.grade_reset_pendente = False
 
-    def _incrementar_qtd_tam(nome):
-        chave = f"qtd_tam_{nome}"
-        st.session_state[chave] = st.session_state.get(chave, 0) + 1
-
-    def _decrementar_qtd_tam(nome):
-        chave = f"qtd_tam_{nome}"
-        atual = st.session_state.get(chave, 0)
-        if atual > 0:
-            st.session_state[chave] = atual - 1
-
-    def _renderizar_linha_tamanho(tam):
-        nome = tam['nome']
-        chave = f"qtd_tam_{nome}"
-        if chave not in st.session_state:
-            st.session_state[chave] = 0
-        label_nome = f"{nome} (+{PERCENTUAL_GG_XG:.0f}%)" if tam.get("adicional") else nome
-        col_nome, col_menos, col_qtd, col_mais = st.columns([2.5, 1, 1.5, 1])
-        with col_nome:
-            st.markdown(f"<div style='padding-top:8px;'>{label_nome}</div>", unsafe_allow_html=True)
-        with col_menos:
-            st.button("➖", key=f"btn_menos_{nome}", on_click=_decrementar_qtd_tam, args=(nome,), use_container_width=True)
-        with col_qtd:
-            st.number_input("Qtd", min_value=0, step=1, key=chave, label_visibility="collapsed")
-        with col_mais:
-            st.button("➕", key=f"btn_mais_{nome}", on_click=_incrementar_qtd_tam, args=(nome,), use_container_width=True)
+    def _renderizar_grade_cartoes(tamanhos, prefixo, titulo, mostrar_adicional=True):
+        """Mostra tamanhos em cartões organizados e adaptáveis à largura da tela."""
+        st.caption(titulo)
+        colunas = st.columns(5)
+        for indice, tamanho in enumerate(tamanhos):
+            nome = tamanho["nome"]
+            chave = f"qtd_tam_{prefixo}{nome}"
+            if chave not in st.session_state:
+                st.session_state[chave] = 0
+            tem_adicional = mostrar_adicional and tamanho.get("adicional", False)
+            rotulo = f"{nome} +{PERCENTUAL_GG_XG:.0f}%" if tem_adicional else nome
+            with colunas[indice % len(colunas)]:
+                st.markdown(
+                    '<div style="text-align:center;font-weight:700;color:#e5e7eb;'
+                    'font-size:12px;margin:5px 0 3px;padding:6px 2px;'
+                    'background:rgba(215,216,218,.07);border:1px solid rgba(215,216,218,.14);'
+                    'border-radius:7px">' + html.escape(rotulo) + '</div>',
+                    unsafe_allow_html=True
+                )
+                st.number_input(
+                    f"Quantidade {nome}", min_value=0, step=1, key=chave,
+                    label_visibility="collapsed"
+                )
 
     tamanhos_adulto = [t for t in LISTA_TAMANHOS if not t['nome'].isdigit()]
     tamanhos_infantil = [t for t in LISTA_TAMANHOS if t['nome'].isdigit()]
 
-    if tamanhos_adulto:
-        st.caption("👕 Adulto")
-        for tam in tamanhos_adulto:
-            _renderizar_linha_tamanho(tam)
+    produto_baby_look = "baby look" in modelo_selecionado.casefold()
+    prefixo_grade = "babylook_" if produto_baby_look else ""
 
-    if tamanhos_infantil:
-        st.caption("👶 Infantil")
-        for tam in tamanhos_infantil:
-            _renderizar_linha_tamanho(tam)
+    if produto_baby_look and tamanhos_adulto:
+        st.markdown('<div class="helper-text">Grade Baby Look: sem adicional por tamanho.</div>', unsafe_allow_html=True)
+        tamanhos_baby_look = [dict(tamanho, adicional=False) for tamanho in tamanhos_adulto]
+        _renderizar_grade_cartoes(
+            tamanhos_baby_look, prefixo_grade, "👚 Baby Look Feminina",
+            mostrar_adicional=False
+        )
+    elif tamanhos_adulto:
+        _renderizar_grade_cartoes(tamanhos_adulto, prefixo_grade, "👕 Adulto")
 
-    qtds_tamanhos = {t['nome']: st.session_state.get(f"qtd_tam_{t['nome']}", 0) for t in LISTA_TAMANHOS}
+    if tamanhos_infantil and not produto_baby_look:
+        _renderizar_grade_cartoes(tamanhos_infantil, prefixo_grade, "👶 Infantil")
+
+    tamanhos_do_produto = tamanhos_adulto if produto_baby_look else LISTA_TAMANHOS
+    qtds_tamanhos = {
+        t['nome']: st.session_state.get(f"qtd_tam_{prefixo_grade}{t['nome']}", 0)
+        for t in tamanhos_do_produto
+    }
     qtd_item_total = sum(qtds_tamanhos.values())
     st.markdown(f'<div class="helper-text" style="margin: 8px 0 14px;">Total selecionado: <strong style="color:#f4f4f5;">{qtd_item_total} peça(s)</strong></div>', unsafe_allow_html=True)
 
@@ -858,7 +866,9 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
             preco_unit = preco_unit_manual_item if ajustar_preco_item else preco_calculado_preview
             preco_unit_adicional = preco_unit * (1 + PERCENTUAL_GG_XG / 100)
 
-            nomes_adicional = {t['nome'] for t in LISTA_TAMANHOS if t.get("adicional")}
+            nomes_adicional = set() if produto_baby_look else {
+                t['nome'] for t in LISTA_TAMANHOS if t.get("adicional")
+            }
             qtd_normal = sum(q for tam, q in qtds_tamanhos.items() if tam not in nomes_adicional)
             qtd_adicional = sum(q for tam, q in qtds_tamanhos.items() if tam in nomes_adicional)
 
@@ -1111,7 +1121,8 @@ if aba_selecionada == OPCOES_NAVEGACAO[0]:
                 if tamanho.get("adicional")
             }
             tem_tamanho_adicional = any(
-                token.split("(", 1)[0].strip().upper() in nomes_tamanhos_adicionais
+                "baby look" not in str(item.get("descricao", "")).casefold()
+                and token.split("(", 1)[0].strip().upper() in nomes_tamanhos_adicionais
                 for item in st.session_state.carrinho
                 for token in str(item.get("grade", "")).split()
             )
